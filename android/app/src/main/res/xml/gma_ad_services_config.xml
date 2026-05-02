@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ad-services-config>
+    <!-- Allow Google Mobile Ads to use Sandbox APIs -->
+    <custom-audiences allowAdPersonalizationSignals="true" />
+    <protected-signals allowAdPersonalizationSignals="true" />
+    <topics allowAdPersonalizationSignals="true" />
+</ad-services-config>

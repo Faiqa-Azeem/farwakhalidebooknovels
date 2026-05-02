@@ -1,0 +1,62 @@
+{
+  "project_info": {
+    "project_number": "722169672929",
+    "project_id": "farwa-khalid-ebook-novels",
+    "storage_bucket": "farwa-khalid-ebook-novels.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:722169672929:android:164a81d1dd9e0dbfff33a0",
+        "android_client_info": {
+          "package_name": "com.farwa.farwa_khalid"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "722169672929-11cefkvkjf1jau32d9nscuju8mf71j9e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.farwa.farwa_khalid",
+            "certificate_hash": "6ad030643d8965b9fc7ebff8ac6169cda4381e6a"
+          }
+        },
+        {
+          "client_id": "722169672929-93igjpu7rs25tj5irq9h9lia28u42ofa.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.farwa.farwa_khalid",
+            "certificate_hash": "4bd498bb8eb138072741bbb243f22ec445da3302"
+          }
+        },
+        {
+          "client_id": "722169672929-hp6utah6eu62plbhl4autqpqgi5ir87o.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMJFyVCP1P8yPvCu7NTxJUn1eUUFflNcQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "722169672929-hp6utah6eu62plbhl4autqpqgi5ir87o.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "722169672929-dar0f35i18rb0nlu9s8bfora4bh46u94.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.farwa.farwaKhalid"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
