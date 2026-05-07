@@ -124,6 +124,16 @@ class SupabaseService {
     if (!SUPABASE_ENABLED) throw Exception("Supabase is disabled");
     
     try {
+      // 🛠️ CRITICAL FIX: Ensure the user immediately gets offline access cached FIRST!
+      // This guarantees that even if Supabase goes down or RLS fails, the user who just paid gets access locally.
+      try {
+        final box = await Hive.openBox('unlocked_ebooks');
+        await box.put('${email}_$ebookId', true);
+        print("✅ Access cached offline immediately!");
+      } catch (cacheError) {
+        print("⚠️ Failed to write to Hive offline cache: $cacheError");
+      }
+
       // Check if already exists to avoid error
       final existing = await _client
           .from('ebook_access')
@@ -143,19 +153,8 @@ class SupabaseService {
       } else {
         print("User already has access to this eBook! Skipping insert.");
       }
-
-      // 🛠️ CRITICAL FIX: Ensure the user immediately gets offline access cached!
-      // This way if they go offline before EbookDetailScreen queries it, they don't get locked out.
-      try {
-        final box = await Hive.openBox('unlocked_ebooks');
-        await box.put('${email}_$ebookId', true);
-        print("✅ Access cached offline immediately!");
-      } catch (cacheError) {
-        print("⚠️ Failed to write to Hive offline cache: $cacheError");
-      }
-      
     } catch (e) {
-      throw Exception('Error granting access: $e');
+      print('Error granting access on server (local cache is active): $e');
     }
   }
 
@@ -169,6 +168,16 @@ class SupabaseService {
     required String deviceId,
   }) async {
     if (!SUPABASE_ENABLED) return false;
+
+    // ⚡️ FAST PATH / GUARANTEED FALLBACK: Check offline cache FIRST.
+    // If the user successfully purchased natively but the Supabase insert failed,
+    // this ensures they are never locked out of what they bought on this device.
+    try {
+      final box = await Hive.openBox('unlocked_ebooks');
+      if (box.get('${email}_$ebookId') == true) {
+        return true;
+      }
+    } catch (_) {}
 
     try {
       // 1. Check if access record exists

@@ -1,10 +1,16 @@
 import 'package:farwa_khalid_ebook_novels/screens/writer/writer_main.dart';
+import 'dart:io' show Platform;
+import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:crypto/crypto.dart';
 import 'set_username_screen.dart';
 import '../reader/reader_main.dart';
 
@@ -159,8 +165,60 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  String _generateNonce([int length = 32]) {
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)])
+        .join();
+  }
+
+  String _sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  Future<void> _handleAppleLogin() async {
+    if (kIsWeb || !Platform.isIOS) return;
+
+    try {
+      setState(() => _isLoading = true);
+
+      final rawNonce = _generateNonce();
+      final nonce = _sha256ofString(rawNonce);
+
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: nonce,
+      );
+
+      final oauthCredential = OAuthProvider('apple.com').credential(
+        idToken: appleCredential.identityToken,
+        rawNonce: rawNonce,
+      );
+
+      final userCredential =
+          await FirebaseAuth.instance.signInWithCredential(oauthCredential);
+
+      await _postLoginCheck(userCredential.user!);
+    } catch (e) {
+      debugPrint("❌ Apple Sign-in error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Apple login failed")),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final showAppleButton = !kIsWeb && Platform.isIOS;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -213,6 +271,30 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
+                if (showAppleButton) ...[
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _handleAppleLogin,
+                      icon: const Icon(Icons.apple, color: Color(0xFF0D2144)),
+                      label: Text(
+                        "Sign in with Apple",
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: const Color(0xFF0D2144),
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Color(0xFF0D2144)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 if (_isLoading) ...[
                   const SizedBox(height: 30),
                   const CircularProgressIndicator(color: Color(0xFF0D2144)),

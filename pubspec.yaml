@@ -3,7 +3,7 @@ description: "eBook novel reader app for Farwa Khalid"
 
 publish_to: 'none'
 
-version: 1.0.16+44
+version: 1.0.17+45
 
 environment:
   sdk: ^3.8.1
@@ -29,6 +29,7 @@ dependencies:
   archive: ^4.0.9
   xml: ^6.5.0
   sign_in_with_apple: ^7.0.1
+  crypto: ^3.0.6
   flutter_facebook_auth: ^6.0.3
   syncfusion_flutter_pdf: ^32.2.9
   flutter_quill: ^11.5.0
@@ -79,4 +80,4 @@ flutter_icons:
   image_path: "assets/images/logo.png"
   adaptive_icon_background: "#ffffff"
   adaptive_icon_foreground: "assets/images/logo.png"
-
+

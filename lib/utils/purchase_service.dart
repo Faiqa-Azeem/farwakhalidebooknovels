@@ -132,11 +132,16 @@ class PurchaseService {
 
     if (storedEbookId != null && storedEmail != null) {
        try {
-         await SupabaseService.insertEbookPayment(
-            ebookId: storedEbookId,
-            email: storedEmail,
-            deviceId: 'google_play_billing', 
-         );
+         // Log payment (Wrap in separate try-catch so it doesn't fail the whole delivery on unique constraint or RLS)
+         try {
+           await SupabaseService.insertEbookPayment(
+              ebookId: storedEbookId,
+              email: storedEmail,
+              deviceId: 'google_play_billing', 
+           );
+         } catch (insertError) {
+           debugPrint("Payment log insert failed, continuing to grant access: $insertError");
+         }
          
          // Grant Access Directly
          await SupabaseService.grantAccess(
