@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -48,9 +49,11 @@ Future<void> main() async {
 
   // ✅ Initialize Google Mobile Ads
   try {
-    // AdMob on iOS requires extra Info.plist keys. If misconfigured, skip init
-    // rather than crashing the whole app.
-    await MobileAds.instance.initialize();
+    // AdMob can hard-crash on iOS if GADApplicationIdentifier is missing.
+    // Skip iOS init for now to keep TestFlight stable; Android still initializes.
+    if (!Platform.isIOS) {
+      await MobileAds.instance.initialize();
+    }
   } catch (e) {
     debugPrint('Mobile Ads init failed: $e');
   }
