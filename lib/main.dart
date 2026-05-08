@@ -64,16 +64,21 @@ Future<void> main() async {
   }
 
   // ✅ Initialize Hive (for offline ebooks + scenes + content)
-  await Hive.initFlutter();
+  try {
+    await Hive.initFlutter();
 
-  // Register adapters
-  Hive.registerAdapter(LocalEbookAdapter());
-  Hive.registerAdapter(LocalSceneAdapter());
+    // Register adapters
+    Hive.registerAdapter(LocalEbookAdapter());
+    Hive.registerAdapter(LocalSceneAdapter());
 
-  // Open boxes
-  await Hive.openBox<LocalEbook>('offline_ebooks');
-  await Hive.openBox<LocalScene>('offline_scenes');
-  await Hive.openBox<String>('ebook_content_box'); // 🔧 new content cache
+    // Open boxes
+    await Hive.openBox<LocalEbook>('offline_ebooks');
+    await Hive.openBox<LocalScene>('offline_scenes');
+    await Hive.openBox<String>('ebook_content_box'); // 🔧 new content cache
+  } catch (e) {
+    // If local storage is corrupted/misconfigured on iOS, avoid hard crash at launch.
+    debugPrint('Hive init failed: $e');
+  }
 
   // ✅ Enable screen security (per-screen, not globally here)
 

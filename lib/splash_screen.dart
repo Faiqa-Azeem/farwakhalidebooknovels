@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import 'screens/home_screens/set_username_screen.dart';
 import 'screens/home_screens/login_screen.dart';
@@ -38,7 +39,14 @@ class _SplashScreenState extends State<SplashScreen> {
       debugPrint("⚠️ Error reading login state: $e");
     }
 
-    final currentUser = FirebaseAuth.instance.currentUser;
+    User? currentUser;
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        currentUser = FirebaseAuth.instance.currentUser;
+      }
+    } catch (e) {
+      debugPrint('⚠️ FirebaseAuth currentUser read failed: $e');
+    }
     debugPrint('🔎 Firebase currentUser: ${currentUser?.email ?? "none"}');
 
     // Show splash for 2 seconds
