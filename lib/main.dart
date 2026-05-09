@@ -26,39 +26,31 @@ Future<void> main() async {
   }
 
   // ✅ Initialize Supabase
-  if (!isIos) {
-    try {
-      await Supabase.initialize(
-        url: 'https://sbwyuykklschxdmxlkcq.supabase.co',
-        anonKey:
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNid3l1eWtrbHNjaHhkbXhsa2NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjY5NDcsImV4cCI6MjA2ODAwMjk0N30.XFTEUjkYXzG0GNNnVnAw6nP1L8Fx628nwBUkSa8fPgs',
-      );
-    } catch (e) {
-      debugPrint('Supabase init failed: $e');
-    }
+  try {
+    await Supabase.initialize(
+      url: 'https://sbwyuykklschxdmxlkcq.supabase.co',
+      anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNid3l1eWtrbHNjaHhkbXhsa2NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjY5NDcsImV4cCI6MjA2ODAwMjk0N30.XFTEUjkYXzG0GNNnVnAw6nP1L8Fx628nwBUkSa8fPgs',
+    );
+  } catch (e) {
+    debugPrint('Supabase init failed: $e');
   }
 
   // ✅ Initialize Google Sign-In
-  if (!isIos) {
-    try {
-      // serverClientId is only required for some server-side flows.
-      // If it fails, don't crash the entire app.
-      await GoogleSignIn.instance.initialize(
-        serverClientId:
-            '722169672929-hp6utah6eu62plbhl4autqpqgi5ir87o.apps.googleusercontent.com',
-      );
-    } catch (e) {
-      debugPrint('Google Sign-In init failed: $e');
-    }
+  try {
+    // serverClientId is only required for some server-side flows.
+    // If it fails, don't crash the entire app.
+    await GoogleSignIn.instance.initialize(
+      serverClientId:
+          '722169672929-hp6utah6eu62plbhl4autqpqgi5ir87o.apps.googleusercontent.com',
+    );
+  } catch (e) {
+    debugPrint('Google Sign-In init failed: $e');
   }
 
   // ✅ Initialize Google Mobile Ads
   try {
-    // AdMob can hard-crash on iOS if GADApplicationIdentifier is missing.
-    // Skip iOS init for now to keep TestFlight stable; Android still initializes.
-    if (!isIos) {
-      await MobileAds.instance.initialize();
-    }
+    await MobileAds.instance.initialize();
   } catch (e) {
     debugPrint('Mobile Ads init failed: $e');
   }
@@ -83,13 +75,11 @@ Future<void> main() async {
   // ✅ Enable screen security (per-screen, not globally here)
 
   // ✅ Initialize Billing globally
-  if (!isIos) {
-    try {
-      // In-app purchase setup can fail on simulator/unsupported store environments.
-      PurchaseService().init();
-    } catch (e) {
-      debugPrint('PurchaseService init failed: $e');
-    }
+  try {
+    // In-app purchase setup can fail on simulator/unsupported store environments.
+    PurchaseService().init();
+  } catch (e) {
+    debugPrint('PurchaseService init failed: $e');
   }
 
   runApp(const MyApp());

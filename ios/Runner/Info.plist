@@ -51,5 +51,20 @@
 	<string>This app needs permission to save images to your photo library when you choose to download or export content.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access to let you capture photos for uploading (e.g., profile pictures and content images).</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>This identifier will be used to deliver personalized ads to you.</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-6924141712831128~1103098212</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.722169672929-ndmgcihcinc3vrm0bupb0eg3kdfr28nl</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

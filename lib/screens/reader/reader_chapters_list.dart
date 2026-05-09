@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -126,7 +127,9 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
     setState(() => _isAdLoading = true);
 
     RewardedAd.load(
-      adUnitId: 'ca-app-pub-6924141712831128/8822036717',
+      adUnitId: Platform.isIOS 
+          ? 'ca-app-pub-6924141712831128/8598444853' 
+          : 'ca-app-pub-6924141712831128/8822036717',
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {

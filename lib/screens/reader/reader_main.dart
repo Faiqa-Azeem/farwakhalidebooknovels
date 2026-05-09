@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import 'package:google_mobile_ads/google_mobile_ads.dart'; // AdMob
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -47,7 +48,9 @@ class _ReaderMainState extends State<ReaderMain> {
 
   void _loadBannerAd() {
     _bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-6924141712831128/3318428593', 
+      adUnitId: Platform.isIOS 
+          ? 'ca-app-pub-6924141712831128/7287187011' 
+          : 'ca-app-pub-6924141712831128/3318428593', 
       request: const AdRequest(),
       size: AdSize.banner,
       listener: BannerAdListener(

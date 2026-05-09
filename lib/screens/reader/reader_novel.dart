@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -26,7 +27,9 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
   Novel? _selectedNovel;
 
   static const int adCooldownMinutes = 5;
-  static const String adUnitId = 'ca-app-pub-6924141712831128/4882791708';
+  static String get adUnitId => Platform.isIOS 
+      ? 'ca-app-pub-6924141712831128/2224608196' 
+      : 'ca-app-pub-6924141712831128/4882791708';
 
   final ScrollController _scrollController = ScrollController();
   int _currentPage = 1;
