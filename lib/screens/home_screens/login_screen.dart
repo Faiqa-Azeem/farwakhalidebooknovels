@@ -141,7 +141,10 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleGoogleLogin() async {
     try {
       setState(() => _isLoading = true);
-      final googleUser = await GoogleSignIn.instance.authenticate();
+      final googleSignIn = GoogleSignIn(
+        clientId: Platform.isIOS ? '722169672929-ndmgcihcinc3vrm0bupb0eg3kdfr28nl.apps.googleusercontent.com' : null,
+      );
+      final googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         setState(() => _isLoading = false);
         return;
