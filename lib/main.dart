@@ -49,12 +49,7 @@ Future<void> main() async {
     debugPrint('Google Sign-In init failed: $e');
   }
 
-  // ✅ Initialize Google Mobile Ads
-  try {
-    await MobileAds.instance.initialize();
-  } catch (e) {
-    debugPrint('Mobile Ads init failed: $e');
-  }
+
 
   // ✅ Initialize Hive (for offline ebooks + scenes + content)
   try {

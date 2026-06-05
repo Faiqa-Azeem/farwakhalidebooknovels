@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
+import 'dart:io' show Platform;
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import 'screens/home_screens/set_username_screen.dart';
 import 'screens/home_screens/login_screen.dart';
@@ -20,6 +22,33 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    _initTrackingAndConfig();
+  }
+
+  Future<void> _initTrackingAndConfig() async {
+    // 1. Wait a bit for the app UI to render
+    await Future.delayed(const Duration(milliseconds: 1000));
+
+    // 2. Request Tracking Authorization on iOS
+    if (Platform.isIOS) {
+      try {
+        final status = await AppTrackingTransparency.trackingAuthorizationStatus;
+        if (status == TrackingStatus.notDetermined) {
+          await AppTrackingTransparency.requestTrackingAuthorization();
+        }
+      } catch (e) {
+        debugPrint("⚠️ AppTrackingTransparency error: $e");
+      }
+    }
+
+    // 3. Initialize Google Mobile Ads after ATT dialog is resolved
+    try {
+      await MobileAds.instance.initialize();
+    } catch (e) {
+      debugPrint("⚠️ Mobile Ads init failed: $e");
+    }
+
+    // 4. Continue to login check
     _checkLoginState();
   }
 

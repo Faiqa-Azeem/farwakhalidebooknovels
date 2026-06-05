@@ -201,7 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception("Apple Sign In failed: identityToken is null");
       }
 
-      final credential = AppleAuthProvider.credential(
+      final credential = AppleAuthProvider.credentialWithIDToken(
         idToken: identityToken,
         rawNonce: rawNonce,
       );
