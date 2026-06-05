@@ -24,7 +24,12 @@ class _TextEditorScreenState extends State<TextEditorScreen> {
   void initState() {
     super.initState();
 
-    final doc = Document()..insert(0, widget.initialContent ?? "");
+    Document doc;
+    if (widget.initialContent != null && widget.initialContent!.isNotEmpty) {
+      doc = Document()..insert(0, widget.initialContent!);
+    } else {
+      doc = Document();
+    }
     _controller = QuillController(
       document: doc,
       selection: const TextSelection.collapsed(offset: 0),
@@ -38,12 +43,20 @@ class _TextEditorScreenState extends State<TextEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const Color mainBlue = Color(0xFF0D2144);
+
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text("Write ${widget.type} ${widget.count}"),
+        backgroundColor: mainBlue,
+        title: Text(
+          "Write ${widget.type} ${widget.count}",
+          style: const TextStyle(color: Colors.white, fontSize: 18),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
-            icon: const Icon(Icons.save),
+            icon: const Icon(Icons.save, color: Colors.white),
             onPressed: _saveContent,
           ),
         ],

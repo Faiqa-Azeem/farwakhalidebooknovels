@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 
 import 'screens/home_screens/set_username_screen.dart';
 import 'screens/home_screens/login_screen.dart';
@@ -54,12 +55,12 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    // ✅ Extra safety check: if prefs say logged in but Firebase has no session → force Login
+    // ✅ Extra safety check: if prefs say logged in but Firebase has no session → go to ReaderMain (Guest)
     if (loggedIn && currentUser == null) {
-      debugPrint("⚠️ Prefs say logged in but Firebase has no session → go to Login");
+      debugPrint("⚠️ Prefs say logged in but Firebase has no session → go to ReaderMain (Guest)");
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => const ReaderMain()),
       );
       return;
     }
@@ -88,10 +89,10 @@ class _SplashScreenState extends State<SplashScreen> {
         }
       }
     } else {
-      debugPrint("✅ Splash → Navigating to LoginScreen");
+      debugPrint("✅ Splash → Navigating to ReaderMain (Guest Mode)");
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => const ReaderMain()),
       );
     }
   }

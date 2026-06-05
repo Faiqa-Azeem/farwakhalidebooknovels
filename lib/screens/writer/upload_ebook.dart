@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/supabase_service.dart';
-import '../../utils/firebase_storage_service.dart'; // ✅ NEW: Firebase Storage
 import 'text_editor_screen.dart';
 
 class SceneItem {
@@ -355,14 +354,14 @@ class _UploadEbookScreenState extends State<UploadEbookScreen> {
       // Upload cover if selected
       String? coverUrl;
       if (_coverImage != null) {
-        final path = 'ebooks/$ebookId/cover.jpg';
-        coverUrl = await FirebaseStorageService.uploadFile(_coverImage!, path);
-        if (coverUrl != null) {
-          await supabase
-              .from('ebooks')
-              .update({'cover_url': coverUrl})
-              .eq('id', ebookId);
-        }
+        final path = '$ebookId/cover_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        await supabase.storage.from('ebooks').upload(path, _coverImage!);
+        coverUrl = supabase.storage.from('ebooks').getPublicUrl(path);
+        
+        await supabase
+            .from('ebooks')
+            .update({'cover_url': coverUrl})
+            .eq('id', ebookId);
       }
 
       // Upload scenes
@@ -370,8 +369,9 @@ class _UploadEbookScreenState extends State<UploadEbookScreen> {
         final s = _scenes[i];
         String? publicUrl;
         if (s.image != null) {
-          final path = 'ebooks/$ebookId/scenes/${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
-          publicUrl = await FirebaseStorageService.uploadFile(s.image!, path);
+          final path = '$ebookId/scenes/${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
+          await supabase.storage.from('ebooks').upload(path, s.image!);
+          publicUrl = supabase.storage.from('ebooks').getPublicUrl(path);
         }
         await supabase.from('ebook_scenes').insert({
           'ebook_id': ebookId,

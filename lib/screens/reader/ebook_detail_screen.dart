@@ -8,7 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:device_info_plus/device_info_plus.dart'; // Added
 import 'package:firebase_auth/firebase_auth.dart'; // Added
-
+import '../home_screens/login_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/ebook.dart';
 import '../../utils/supabase_service.dart';
@@ -138,7 +138,45 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
     }
   }
 
+  void _showSignInRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign In Required', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('To start reading ebooks and premium content, please sign in or create an account.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D2144),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Sign In'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showVoiceoversModal() {
+    if (!_hasAccess) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showSignInRequiredDialog();
+        return;
+      }
+    }
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
@@ -199,10 +237,17 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
           builder: (_) => EbookReaderScreen(ebook: widget.ebook),
         ),
       );
-    } else {
-      // Show Purchase Dialog
-      _showPurchaseDialog();
+      return;
     }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _showSignInRequiredDialog();
+      return;
+    }
+
+    // Show Purchase Dialog
+    _showPurchaseDialog();
   }
 
   void _showPurchaseDialog() {

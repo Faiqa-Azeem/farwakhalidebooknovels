@@ -6,6 +6,8 @@ import '../../models/novel.dart';
 import '../../models/scene.dart';
 import '../../utils/supabase_service.dart';
 import 'reader_chapters_list.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../home_screens/login_screen.dart';
 
 class NovelDetailScreen extends StatefulWidget {
   final Novel novel;

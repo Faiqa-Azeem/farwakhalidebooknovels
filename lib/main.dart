@@ -41,7 +41,7 @@ Future<void> main() async {
     // serverClientId is only required for some server-side flows.
     // If it fails, don't crash the entire app.
     await GoogleSignIn.instance.initialize(
-      clientId: isIos ? '722169672929-ndmgcihcinc3vrm0bupb0eg3kdfr28nl.apps.googleusercontent.com' : null,
+      clientId: isIos ? '722169672929-dar0f35i18rb0nlu9s8bfora4bh46u94.apps.googleusercontent.com' : null,
       serverClientId:
           '722169672929-hp6utah6eu62plbhl4autqpqgi5ir87o.apps.googleusercontent.com',
     );

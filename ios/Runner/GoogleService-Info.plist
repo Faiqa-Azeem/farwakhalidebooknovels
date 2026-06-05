@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>722169672929-ndmgcihcinc3vrm0bupb0eg3kdfr28nl.apps.googleusercontent.com</string>
+	<string>722169672929-dar0f35i18rb0nlu9s8bfora4bh46u94.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.722169672929-ndmgcihcinc3vrm0bupb0eg3kdfr28nl</string>
+	<string>com.googleusercontent.apps.722169672929-dar0f35i18rb0nlu9s8bfora4bh46u94</string>
 	<key>ANDROID_CLIENT_ID</key>
 	<string>722169672929-11cefkvkjf1jau32d9nscuju8mf71j9e.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.farwa.farwakhalid</string>
+	<string>com.farwa.farwaKhalid</string>
 	<key>PROJECT_ID</key>
 	<string>farwa-khalid-ebook-novels</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:722169672929:ios:3f89f496ba9a795cff33a0</string>
+	<string>1:722169672929:ios:d390799c15eb5611ff33a0</string>
 </dict>
 </plist>

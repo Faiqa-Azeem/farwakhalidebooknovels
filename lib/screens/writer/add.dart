@@ -331,11 +331,13 @@ class _AddScreenState extends State<AddScreen> {
 
         } else {
           // Insert new
+           const writerId = 'DFm3K8mo4QPM4pqjVU3VDm1po9q2';
            final inserted = await supabase
               .from('ebook_content')
               .insert({
                 'ebook_id': ebookId,
                 'content': fileContent,
+                'author_id': writerId,
               })
               .select()
               .single();

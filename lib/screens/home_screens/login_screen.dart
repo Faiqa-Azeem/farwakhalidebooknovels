@@ -196,19 +196,35 @@ class _LoginScreenState extends State<LoginScreen> {
         nonce: nonce,
       );
 
-      final oauthCredential = OAuthProvider('apple.com').credential(
-        idToken: appleCredential.identityToken,
+      final identityToken = appleCredential.identityToken;
+      if (identityToken == null) {
+        throw Exception("Apple Sign In failed: identityToken is null");
+      }
+
+      final credential = AppleAuthProvider.credential(
+        idToken: identityToken,
         rawNonce: rawNonce,
       );
 
       final userCredential =
-          await FirebaseAuth.instance.signInWithCredential(oauthCredential);
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+      if (userCredential.user == null) {
+        throw Exception("Firebase Sign In returned a null user");
+      }
 
       await _postLoginCheck(userCredential.user!);
     } catch (e) {
       debugPrint("❌ Apple Sign-in error: $e");
+      String errorMessage = e.toString();
+      if (e is FirebaseAuthException) {
+        errorMessage = e.message ?? e.toString();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Apple login failed")),
+        SnackBar(
+          content: Text("Apple login failed: $errorMessage"),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       setState(() => _isLoading = false);
@@ -218,9 +234,20 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final showAppleButton = !kIsWeb && Platform.isIOS;
+    final canPop = Navigator.canPop(context);
 
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: canPop
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF0D2144)),
+                onPressed: () => Navigator.maybePop(context),
+              ),
+            )
+          : null,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -295,6 +322,37 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ],
+                const SizedBox(height: 20),
+                TextButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () async {
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setBool('is_guest', true);
+                          await prefs.setBool('logged_in', false);
+                          await prefs.setBool('username_set', false);
+                          await prefs.setBool('is_writer', false);
+
+                          if (!mounted) return;
+                          if (Navigator.canPop(context)) {
+                            Navigator.pop(context);
+                          } else {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => const ReaderMain()),
+                            );
+                          }
+                        },
+                  child: Text(
+                    "Browse as Guest",
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      color: const Color(0xFF0D2144),
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
                 if (_isLoading) ...[
                   const SizedBox(height: 30),
                   const CircularProgressIndicator(color: Color(0xFF0D2144)),
