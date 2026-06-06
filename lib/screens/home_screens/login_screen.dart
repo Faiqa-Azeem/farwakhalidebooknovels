@@ -202,8 +202,12 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       final credential = AppleAuthProvider.credentialWithIDToken(
-        idToken: identityToken,
-        rawNonce: rawNonce,
+        identityToken,
+        rawNonce,
+        AppleFullPersonName(
+          givenName: appleCredential.givenName,
+          familyName: appleCredential.familyName,
+        ),
       );
 
       final userCredential =
