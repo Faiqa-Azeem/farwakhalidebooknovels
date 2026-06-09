@@ -61,13 +61,29 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           }
         } else {
-          // No profile set yet → go to SetUsername
-          debugPrint("⚠️ No user document found, go to SetUsernameScreen");
-          await _saveLoginState(user.email ?? '', true, false, false);
+          // No profile set yet → Create default and go to ReaderMain
+          debugPrint("⚠️ No user document found, creating default profile");
+          String defaultUsername = 'Reader_${user.uid.substring(0, 5)}';
+          if (user.displayName != null && user.displayName!.trim().isNotEmpty) {
+             defaultUsername = user.displayName!.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
+             if (defaultUsername.isEmpty) {
+               defaultUsername = 'Reader_${user.uid.substring(0, 5)}';
+             }
+          }
+
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+            'uid': user.uid,
+            'email': user.email,
+            'username': defaultUsername,
+            'createdAt': FieldValue.serverTimestamp(),
+            'role': 'reader',
+          });
+
+          await _saveLoginState(user.email ?? '', true, true, false);
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const SetUsernameScreen()),
+            MaterialPageRoute(builder: (_) => const ReaderMain()),
           );
         }
       } catch (e) {
@@ -119,13 +135,30 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } else {
-        // No profile yet → go to SetUsername screen
-        debugPrint("⚠️ Username not set → ${user.email}");
-        await _saveLoginState(user.email ?? '', true, false, false);
+        // No profile yet → Create a default one and proceed without asking for username
+        debugPrint("⚠️ Username not set → Creating default profile for ${user.email}");
+        
+        String defaultUsername = 'Reader_${user.uid.substring(0, 5)}';
+        if (user.displayName != null && user.displayName!.trim().isNotEmpty) {
+           defaultUsername = user.displayName!.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
+           if (defaultUsername.isEmpty) {
+             defaultUsername = 'Reader_${user.uid.substring(0, 5)}';
+           }
+        }
+
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'uid': user.uid,
+          'email': user.email,
+          'username': defaultUsername,
+          'createdAt': FieldValue.serverTimestamp(),
+          'role': 'reader',
+        });
+
+        await _saveLoginState(user.email ?? '', true, true, false);
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const SetUsernameScreen()),
+          MaterialPageRoute(builder: (_) => const ReaderMain()),
         );
       }
     } catch (e) {

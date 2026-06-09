@@ -110,10 +110,10 @@ class _SplashScreenState extends State<SplashScreen> {
             MaterialPageRoute(builder: (_) => const ReaderMain()),
           );
         } else {
-          debugPrint("✅ Splash → Navigating to SetUsernameScreen");
+          debugPrint("✅ Splash → Navigating to ReaderMain (Username not set)");
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const SetUsernameScreen()),
+            MaterialPageRoute(builder: (_) => const ReaderMain()),
           );
         }
       }
