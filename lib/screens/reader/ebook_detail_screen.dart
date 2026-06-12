@@ -277,72 +277,76 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
               ),
               const SizedBox(height: 24),
               
-              // 1. Pakistan Option (Urdu)
-              const Text(
-                "پاکستان کے لیے", // For Pakistan
-                style: TextStyle(
-                  fontSize: 24, // Larger for Urdu
-                  fontFamily: 'JameelNooriNastaleeq', 
-                  color: Colors.green,
-                  height: 1.2,
-                ),
-                textDirection: TextDirection.rtl,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                "اگر آپ پاکستان سے ہیں اور یہ ای بک پڑھنا چاہتے ہیں، تو ہماری رائٹر سے واٹس ایپ پر رابطہ کریں۔ رسائی ملنے کے بعد آپ کو یہاں 'Read Now' کا بٹن نظر آئے گا۔", 
-                style: TextStyle(
-                  fontSize: 18, 
-                  fontFamily: 'JameelNooriNastaleeq', 
-                  color: Colors.black87,
-                  height: 1.6
-                ),
-                textAlign: TextAlign.center,
-                textDirection: TextDirection.rtl,
-              ),
-              const SizedBox(height: 16),
-              
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: () => _launchWhatsApp(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF25D366), // WhatsApp Green
-                    foregroundColor: Colors.white,
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              // 1. Pakistan Option (Urdu) - Hidden on iOS to comply with App Store Guidelines
+              if (!Platform.isIOS) ...[
+                const Text(
+                  "پاکستان کے لیے", // For Pakistan
+                  style: TextStyle(
+                    fontSize: 24, // Larger for Urdu
+                    fontFamily: 'JameelNooriNastaleeq', 
+                    color: Colors.green,
+                    height: 1.2,
                   ),
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  label: const Text(
-                    "Contact on WhatsApp", 
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
-                  ),
+                  textDirection: TextDirection.rtl,
                 ),
-              ),
-
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: Text("OR", style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 8),
+                const Text(
+                  "اگر آپ پاکستان سے ہیں اور یہ ای بک پڑھنا چاہتے ہیں، تو ہماری رائٹر سے واٹس ایپ پر رابطہ کریں۔ رسائی ملنے کے بعد آپ کو یہاں 'Read Now' کا بٹن نظر آئے گا۔", 
+                  style: TextStyle(
+                    fontSize: 18, 
+                    fontFamily: 'JameelNooriNastaleeq', 
+                    color: Colors.black87,
+                    height: 1.6
+                  ),
+                  textAlign: TextAlign.center,
+                  textDirection: TextDirection.rtl,
+                ),
+                const SizedBox(height: 16),
+                
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _launchWhatsApp(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366), // WhatsApp Green
+                      foregroundColor: Colors.white,
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    Expanded(child: Divider()),
-                  ],
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text(
+                      "Contact on WhatsApp", 
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+                    ),
+                  ),
                 ),
-              ),
 
-              // 2. International Option
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Row(
+                    children: [
+                      Expanded(child: Divider()),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: Text("OR", style: TextStyle(color: Colors.grey)),
+                      ),
+                      Expanded(child: Divider()),
+                    ],
+                  ),
+                ),
+              ],
+
+              // 2. In-App Purchase Option
+              if (!Platform.isIOS) ...[
+                const Text(
+                  "International / Indian Users",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.blueGrey),
+                ),
+                const SizedBox(height: 4),
+              ],
               const Text(
-                "International / Indian Users",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.blueGrey),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                "Instant unlock via Google Play",
+                "Instant unlock via App Store / Play Store",
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
               const SizedBox(height: 12),
@@ -373,7 +377,7 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
                     elevation: 2,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  icon: const Icon(Icons.g_mobiledata, size: 28), 
+                  icon: Icon(Platform.isIOS ? Icons.payment : Icons.g_mobiledata, size: 28), 
                   label: Text(
                     "Pay Rs ${_price ?? 0}",
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
