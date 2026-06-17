@@ -345,9 +345,9 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
                 ),
                 const SizedBox(height: 4),
               ],
-              const Text(
-                "Instant unlock via App Store / Play Store",
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+              Text(
+                "Instant unlock via ${Platform.isIOS ? 'App Store' : 'Play Store'}",
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
               const SizedBox(height: 12),
               
