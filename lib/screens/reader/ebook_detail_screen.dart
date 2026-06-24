@@ -356,8 +356,11 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
                 height: 50,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                     // Calculate ID: tier_500
-                     final String productId = 'tier_${_price ?? 0}';
+                     // Calculate ID
+                     String productId = 'tier_${_price ?? 0}';
+                     if (Platform.isIOS && _price == 500) {
+                       productId = 'tier_500_v2';
+                     }
                      // Set Pending Info
                      final user = FirebaseAuth.instance.currentUser;
                      if (user?.email == null) {
