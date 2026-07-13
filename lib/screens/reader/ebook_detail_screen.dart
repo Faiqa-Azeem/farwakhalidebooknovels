@@ -360,12 +360,6 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
                 height: 50,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                     // Calculate ID
-                     String productId = 'tier_${_price ?? 0}';
-                     if (Platform.isIOS && _price == 500) {
-                       productId = 'tier_500_v2';
-                     }
-                     // Set Pending Info
                      final user = FirebaseAuth.instance.currentUser;
                      if (user?.email == null) {
                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please Login first!")));
@@ -374,8 +368,11 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
                      PurchaseService.pendingEbookId = widget.ebook.id;
                      PurchaseService.pendingUserEmail = user!.email;
                      
-                     // Launch
-                     PurchaseService().buyTopUp(productId, widget.ebook.id, user!.email!);
+                     PurchaseService().buyEbook(
+                       price: _price ?? 0,
+                       ebookId: widget.ebook.id,
+                       userEmail: user!.email!,
+                     );
                      Navigator.pop(context); 
                   },
                   style: ElevatedButton.styleFrom(

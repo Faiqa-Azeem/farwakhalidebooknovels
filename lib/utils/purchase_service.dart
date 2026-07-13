@@ -1,4 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io' show Platform;
+
+import 'package:crypto/crypto.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,11 +41,32 @@ class PurchaseService {
   Future<void> _checkAvailability() async {
     _isAvailable = await _iap.isAvailable();
     if (!_isAvailable) {
-       print("⚠️ Store not available");
+       debugPrint("Store not available");
     }
   }
 
+  /// Maps an ebook price to the correct store product ID per platform.
+  /// iOS uses tier_500_v2 for Rs 500; Google Play uses tier_500.
+  static String productIdForPrice(int price) {
+    if (Platform.isIOS && price == 500) {
+      return 'tier_500_v2';
+    }
+    return 'tier_$price';
+  }
+
+  /// Start an ebook purchase using the platform-correct product ID.
+  Future<void> buyEbook({
+    required int price,
+    required String ebookId,
+    required String userEmail,
+  }) {
+    final productId = productIdForPrice(price);
+    debugPrint('Starting purchase: platform=${Platform.operatingSystem}, price=$price, productId=$productId');
+    return buyTopUp(productId, ebookId, userEmail);
+  }
+
   Future<void> buyTopUp(String productId, String ebookId, String userEmail) async {
+    _isAvailable = await _iap.isAvailable();
     if (!_isAvailable) {
       if (onError != null) onError!("Store not available. Try again later.", true);
       return;
@@ -60,14 +85,29 @@ class PurchaseService {
        return;
     }
 
+    if (response.error != null) {
+      debugPrint("queryProductDetails error: ${response.error}");
+      if (onError != null) {
+        onError!("Could not load product from store. Try again later.", true);
+      }
+      return;
+    }
+
     final ProductDetails productDetails = response.productDetails.first;
 
-    // Use applicationUserName to pass ebookId and email safely through the purchase
-    // We will pack it as "email|ebookId"
-    final purchaseParam = PurchaseParam(
-      productDetails: productDetails,
-      applicationUserName: "$userEmail|$ebookId", 
-    );
+    // Never pass cleartext email/PII in applicationUserName on Android — Google Play
+    // blocks purchases and returns BillingResponse.developerError / "Invalid obfuscated account id".
+    // Ebook context is stored in SharedPreferences instead.
+    final PurchaseParam purchaseParam;
+    if (Platform.isAndroid) {
+      purchaseParam = PurchaseParam(productDetails: productDetails);
+    } else {
+      final obfuscatedUser = sha256.convert(utf8.encode(userEmail)).toString();
+      purchaseParam = PurchaseParam(
+        productDetails: productDetails,
+        applicationUserName: obfuscatedUser,
+      );
+    }
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -81,7 +121,14 @@ class PurchaseService {
       debugPrint("Error saving prefs: $e");
     }
 
-    _iap.buyConsumable(purchaseParam: purchaseParam);
+    // autoConsume: false so we only complete/consume after access is granted successfully.
+    final started = await _iap.buyConsumable(
+      purchaseParam: purchaseParam,
+      autoConsume: false,
+    );
+    if (!started && onError != null) {
+      onError!("Could not start purchase. Please try again.", true);
+    }
   }
 
   void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) async {
@@ -90,7 +137,14 @@ class PurchaseService {
         // Show loading?
       } else {
         if (purchaseDetails.status == PurchaseStatus.error) {
-          if (onError != null) onError!(purchaseDetails.error?.message ?? "Purchase failed", true);
+          final error = purchaseDetails.error;
+          debugPrint(
+            "Purchase error: code=${error?.code}, message=${error?.message}, "
+            "details=${error?.details}, product=${purchaseDetails.productID}",
+          );
+          if (onError != null) {
+            onError!(error?.message ?? "Purchase failed", true);
+          }
         } else if (purchaseDetails.status == PurchaseStatus.purchased ||
                    purchaseDetails.status == PurchaseStatus.restored) {
           final success = await _deliverProduct(purchaseDetails);
@@ -120,8 +174,7 @@ class PurchaseService {
     // We grant access HERE. But we need the ebookId. 
     // If applicationUserName works, we use it.
     
-    final payload = purchaseDetails.verificationData.localVerificationData;
-    // We should verify this on server, but for now we trust it.
+    // We should verify purchaseDetails.verificationData on server, but for now we trust it.
     
     // IMPORTANT: Since we can't easily pass custom data in buyConsumable that survives reliably 
     // without a server verifying the token, we will load variables from SharedPreferences.
