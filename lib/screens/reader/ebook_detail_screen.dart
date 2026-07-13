@@ -12,7 +12,6 @@ import '../home_screens/login_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/ebook.dart';
 import '../../utils/supabase_service.dart';
-import '../../utils/supabase_service.dart';
 import '../../utils/purchase_service.dart'; // Added
 import 'ebook_reader_screen.dart';
 import 'voiceover_player_screen.dart';
@@ -116,9 +115,14 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
         // Get Device ID
         String deviceId = 'unknown_device';
         try {
-          // You need to add device_info_plus to pubspec if not already there
-           final deviceInfo = await DeviceInfoPlugin().androidInfo;
-           deviceId = deviceInfo.id; // Unique Android ID
+           final deviceInfo = DeviceInfoPlugin();
+           if (Platform.isAndroid) {
+             final androidInfo = await deviceInfo.androidInfo;
+             deviceId = androidInfo.id;
+           } else if (Platform.isIOS) {
+             final iosInfo = await deviceInfo.iosInfo;
+             deviceId = iosInfo.identifierForVendor ?? 'unknown_ios_device';
+           }
         } catch (e) {
             print("Error getting device info: $e");
         }

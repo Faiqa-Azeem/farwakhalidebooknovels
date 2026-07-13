@@ -1,4 +1,8 @@
 
+import 'dart:convert';
+import 'package:archive/archive.dart';
+import 'package:xml/xml.dart';
+
 // ---------------------------------------------------------------------------
 // STANDALONE FUNCTION FOR ISOLATE (Must be top-level or static)
 // ---------------------------------------------------------------------------

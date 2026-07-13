@@ -32,9 +32,17 @@ class _SplashScreenState extends State<SplashScreen> {
     // 2. Request Tracking Authorization on iOS
     if (Platform.isIOS) {
       try {
-        final status = await AppTrackingTransparency.trackingAuthorizationStatus;
+        final status = await AppTrackingTransparency.trackingAuthorizationStatus
+            .timeout(const Duration(seconds: 2), onTimeout: () {
+          debugPrint("⚠️ AppTrackingTransparency status check timed out.");
+          return TrackingStatus.notDetermined;
+        });
         if (status == TrackingStatus.notDetermined) {
-          await AppTrackingTransparency.requestTrackingAuthorization();
+          await AppTrackingTransparency.requestTrackingAuthorization()
+              .timeout(const Duration(seconds: 4), onTimeout: () {
+            debugPrint("⚠️ AppTrackingTransparency request authorization timed out.");
+            return TrackingStatus.notDetermined;
+          });
         }
       } catch (e) {
         debugPrint("⚠️ AppTrackingTransparency error: $e");
