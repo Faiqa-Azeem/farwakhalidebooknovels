@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/novel.dart';
 import '../../utils/supabase_service.dart';
 import 'chapter_reader_screen.dart';
@@ -26,6 +27,9 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
   bool _isAdLoading = false;
   int? _selectedChapterIndex;
   int _adRetryCount = 0;
+  int? _earnedChapterIndex;
+  int? _earnedVoiceoverIndex;
+  Map<String, dynamic>? _earnedVoiceoverData;
 
   static const int unlockDurationHours = 6;
   static const int maxAdRetries = 2;
@@ -140,6 +144,9 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
             });
           }
           print('✅ Rewarded ad loaded successfully');
+          try {
+            _logAdEvent('rewarded_loaded', {'isRetry': isRetry.toString()});
+          } catch (_) {}
         },
         onAdFailedToLoad: (error) {
           if (mounted) {
@@ -149,6 +156,9 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
             });
           }
            print('❌ Rewarded ad failed to load: ${error.code} - ${error.message}');
+          try {
+            _logAdEvent('rewarded_failed_to_load', {'code': error.code, 'message': error.message});
+          } catch (_) {}
         },
       ),
     );
@@ -193,11 +203,17 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
+        final earnedIndex = _earnedChapterIndex;
+        _earnedChapterIndex = null;
         _rewardedAd = null;
         _selectedChapterIndex = null;
         _adRetryCount = 0; 
         setState(() => _isAdLoading = false);
         _preloadRewardedAd(); 
+        if (earnedIndex != null) {
+          // Open the chapter after the ad has fully dismissed (prevents iOS blank screen)
+          _openChapter(context, _chapters[earnedIndex], earnedIndex + 1);
+        }
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         print('❌ Rewarded ad failed to show: ${error.code} - ${error.message}');
@@ -211,11 +227,14 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
         _unlockAndOpenChapter(chapterIndex);
       },
     );
-
+ 
     _rewardedAd!.show(onUserEarnedReward: (ad, reward) async {
-      await _unlockAndOpenChapter(chapterIndex);
+      // Save unlock but delay navigation until the ad is dismissed on iOS devices
+      await _saveUnlock(chapterIndex);
+      _earnedChapterIndex = chapterIndex;
+      try { await _logAdEvent('rewarded_earned', {'chapterIndex': chapterIndex}); } catch (_) {}
     });
-
+ 
     _rewardedAd = null;
     setState(() {});
   }
@@ -305,6 +324,20 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
     }
   }
 
+  Future<void> _logAdEvent(String event, Map<String, dynamic> details) async {
+    try {
+      await FirebaseFirestore.instance.collection('ad_logs').add({
+        'event': event,
+        'novel_id': widget.novel.id,
+        'timestamp': FieldValue.serverTimestamp(),
+        'platform': Platform.isIOS ? 'ios' : 'android',
+        ...details,
+      });
+    } catch (e) {
+      debugPrint('⚠️ Failed to log ad event: $e');
+    }
+  }
+
   Future<bool> _isVoiceoverUnlocked(int index) async {
     final prefs = await SharedPreferences.getInstance();
     final unlockString = prefs.getString(_voiceoverUnlockKey(index));
@@ -357,11 +390,18 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
+        final earnedIndex = _earnedVoiceoverIndex;
+        final earnedData = _earnedVoiceoverData;
+        _earnedVoiceoverIndex = null;
+        _earnedVoiceoverData = null;
         _rewardedAd = null;
         _selectedVoiceoverIndex = null;
         _adRetryCount = 0; 
         setState(() => _isAdLoadingVoiceover = false);
         _preloadRewardedAd(); 
+        if (earnedIndex != null && earnedData != null) {
+          _openVoiceoverPlayer(earnedData['title'] ?? 'Part ${earnedData['part_number']}', earnedData['audio_url']);
+        }
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         print('❌ Rewarded ad failed to show: ${error.code} - ${error.message}');
@@ -375,11 +415,15 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
         _unlockAndOpenVoiceover(index, voice);
       },
     );
-
+ 
     _rewardedAd!.show(onUserEarnedReward: (ad, reward) async {
-      await _unlockAndOpenVoiceover(index, voice);
+      // Save unlock but delay navigation until the ad is dismissed on iOS devices
+      await _saveVoiceoverUnlock(index);
+      _earnedVoiceoverIndex = index;
+      _earnedVoiceoverData = voice;
+      try { await _logAdEvent('rewarded_voiceover_earned', {'voiceIndex': index}); } catch (_) {}
     });
-
+ 
     _rewardedAd = null;
     setState(() {});
   }
@@ -425,12 +469,30 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
   }
 
   void _openVoiceoverPlayer(String title, String audioUrl) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => VoiceoverPlayerScreen(title: title, audioUrl: audioUrl),
-      ),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      try {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VoiceoverPlayerScreen(title: title, audioUrl: audioUrl),
+          ),
+        );
+      } catch (e) {
+        debugPrint('Navigation error opening voiceover: $e');
+        try { await _logAdEvent('navigation_error_voiceover', {'error': e.toString()}); } catch (_) {}
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Voiceover'),
+              content: const Text('Unable to open player. Please try again.'),
+              actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+            ),
+          );
+        }
+      }
+    });
   }
 
   @override
@@ -650,17 +712,36 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
     final chapterName = (chapter['name'] ?? 'Untitled').toString();
     final chapterContent = (chapter['content'] ?? '').toString();
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ChapterReaderScreen(
-          novel: widget.novel,
-          chapterName: chapterName,
-          chapterContent: chapterContent,
-          chapterNumber: chapterNumber,
-        ),
-      ),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      try { await _logAdEvent('navigation_start', {'chapter': chapterNumber}); } catch (_) {}
+      try {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChapterReaderScreen(
+              novel: widget.novel,
+              chapterName: chapterName,
+              chapterContent: chapterContent,
+              chapterNumber: chapterNumber,
+            ),
+          ),
+        );
+      } catch (e) {
+        debugPrint('Navigation error opening chapter: $e');
+        try { await _logAdEvent('navigation_error_chapter', {'error': e.toString(), 'chapter': chapterNumber}); } catch (_) {}
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Episode'),
+              content: SingleChildScrollView(child: Text(chapterContent)),
+              actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+            ),
+          );
+        }
+      }
+    });
   }
 
   @override
