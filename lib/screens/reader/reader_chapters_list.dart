@@ -42,6 +42,11 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
   @override
   void initState() {
     super.initState();
+    _earnedChapterIndex = null;
+    _earnedVoiceoverIndex = null;
+    _earnedVoiceoverData = null;
+    _selectedChapterIndex = null;
+    _selectedVoiceoverIndex = null;
     _loadChapters();
     _loadVoiceovers();
     _loadAuthorName();
@@ -208,9 +213,11 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
         _rewardedAd = null;
         _selectedChapterIndex = null;
         _adRetryCount = 0; 
-        setState(() => _isAdLoading = false);
+        if (mounted) {
+          setState(() => _isAdLoading = false);
+        }
         _preloadRewardedAd(); 
-        if (earnedIndex != null) {
+        if (earnedIndex != null && mounted && earnedIndex < _chapters.length) {
           // Open the chapter after the ad has fully dismissed (prevents iOS blank screen)
           _openChapter(context, _chapters[earnedIndex], earnedIndex + 1);
         }
@@ -219,9 +226,12 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
         print('❌ Rewarded ad failed to show: ${error.code} - ${error.message}');
         ad.dispose();
         _rewardedAd = null;
+        _earnedChapterIndex = null;
         _selectedChapterIndex = null;
         _adRetryCount = 0;
-        setState(() => _isAdLoading = false);
+        if (mounted) {
+          setState(() => _isAdLoading = false);
+        }
         _preloadRewardedAd();
         
         _unlockAndOpenChapter(chapterIndex);
@@ -397,9 +407,11 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
         _rewardedAd = null;
         _selectedVoiceoverIndex = null;
         _adRetryCount = 0; 
-        setState(() => _isAdLoadingVoiceover = false);
+        if (mounted) {
+          setState(() => _isAdLoadingVoiceover = false);
+        }
         _preloadRewardedAd(); 
-        if (earnedIndex != null && earnedData != null) {
+        if (earnedIndex != null && earnedData != null && mounted) {
           _openVoiceoverPlayer(earnedData['title'] ?? 'Part ${earnedData['part_number']}', earnedData['audio_url']);
         }
       },
@@ -407,9 +419,13 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
         print('❌ Rewarded ad failed to show: ${error.code} - ${error.message}');
         ad.dispose();
         _rewardedAd = null;
+        _earnedVoiceoverIndex = null;
+        _earnedVoiceoverData = null;
         _selectedVoiceoverIndex = null;
         _adRetryCount = 0;
-        setState(() => _isAdLoadingVoiceover = false);
+        if (mounted) {
+          setState(() => _isAdLoadingVoiceover = false);
+        }
         _preloadRewardedAd();
         
         _unlockAndOpenVoiceover(index, voice);
@@ -471,7 +487,16 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
   void _openVoiceoverPlayer(String title, String audioUrl) {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      
+      // Small delay to ensure ad has fully dismissed
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      if (!mounted) return;
       try {
+        if (!mounted || context.widget == null) {
+          debugPrint('Context invalid for voiceover navigation');
+          return;
+        }
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -714,8 +739,17 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      
+      // Small delay to ensure ad has fully dismissed
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      if (!mounted) return;
       try { await _logAdEvent('navigation_start', {'chapter': chapterNumber}); } catch (_) {}
       try {
+        if (!mounted || context.widget == null) {
+          debugPrint('Context invalid for navigation');
+          return;
+        }
         Navigator.push(
           context,
           MaterialPageRoute(
