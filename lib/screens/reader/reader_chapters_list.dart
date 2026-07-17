@@ -485,34 +485,32 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
   }
 
   void _openVoiceoverPlayer(String title, String audioUrl) {
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    // Longer delay to ensure ad is completely gone and UI is stable
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (!mounted) return;
       
-      // Small delay to ensure ad has fully dismissed
-      await Future.delayed(const Duration(milliseconds: 300));
-      
-      if (!mounted) return;
       try {
-        if (!mounted || context.widget == null) {
-          debugPrint('Context invalid for voiceover navigation');
-          return;
-        }
-        Navigator.push(
-          context,
+        // Use a new navigator context to avoid stale context issues
+        Navigator.of(context, rootNavigator: false).push(
           MaterialPageRoute(
-            builder: (context) => VoiceoverPlayerScreen(title: title, audioUrl: audioUrl),
+            builder: (_) => VoiceoverPlayerScreen(title: title, audioUrl: audioUrl),
           ),
         );
       } catch (e) {
-        debugPrint('Navigation error opening voiceover: $e');
-        try { await _logAdEvent('navigation_error_voiceover', {'error': e.toString()}); } catch (_) {}
+        debugPrint('⚠️ Navigation error opening voiceover: $e');
+        // Fallback: show dialog
         if (mounted) {
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
               title: const Text('Voiceover'),
-              content: const Text('Unable to open player. Please try again.'),
-              actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+              content: const Text('Unable to open voiceover player. Please try again.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Close'),
+                )
+              ],
             ),
           );
         }
@@ -737,23 +735,15 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
     final chapterName = (chapter['name'] ?? 'Untitled').toString();
     final chapterContent = (chapter['content'] ?? '').toString();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    // Longer delay to ensure ad is completely gone and UI is stable
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (!mounted) return;
       
-      // Small delay to ensure ad has fully dismissed
-      await Future.delayed(const Duration(milliseconds: 300));
-      
-      if (!mounted) return;
-      try { await _logAdEvent('navigation_start', {'chapter': chapterNumber}); } catch (_) {}
       try {
-        if (!mounted || context.widget == null) {
-          debugPrint('Context invalid for navigation');
-          return;
-        }
-        Navigator.push(
-          context,
+        // Use a new navigator context to avoid stale context issues
+        Navigator.of(context, rootNavigator: false).push(
           MaterialPageRoute(
-            builder: (context) => ChapterReaderScreen(
+            builder: (_) => ChapterReaderScreen(
               novel: widget.novel,
               chapterName: chapterName,
               chapterContent: chapterContent,
@@ -762,15 +752,22 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
           ),
         );
       } catch (e) {
-        debugPrint('Navigation error opening chapter: $e');
-        try { await _logAdEvent('navigation_error_chapter', {'error': e.toString(), 'chapter': chapterNumber}); } catch (_) {}
+        debugPrint('⚠️ Navigation error: $e');
+        // Fallback: show dialog instead
         if (mounted) {
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
               title: const Text('Episode'),
-              content: SingleChildScrollView(child: Text(chapterContent)),
-              actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+              content: SingleChildScrollView(
+                child: Text(chapterContent.isEmpty ? 'Content loading...' : chapterContent),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Close'),
+                )
+              ],
             ),
           );
         }
