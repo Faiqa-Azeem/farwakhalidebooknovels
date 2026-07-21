@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:screen_protector/screen_protector.dart'; 
@@ -61,7 +62,16 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   }
 
   Future<void> _secureScreen() async {
-    await ScreenProtector.preventScreenshotOn();
+    try {
+      if (Platform.isIOS) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+      if (mounted) {
+        await ScreenProtector.preventScreenshotOn();
+      }
+    } catch (e) {
+      debugPrint('ScreenProtector enable error: $e');
+    }
   }
 
   Future<void> _loadTheme() async {
@@ -311,23 +321,29 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                                           ),
                                         ),
                                       ),
-                                      GestureDetector(
-                                        onLongPress: () {},
-                                        child: Directionality(
-                                          textDirection: TextDirection.rtl,
-                                          child: Text(
-                                            _pages[_currentPage],
-                                            style: TextStyle(
-                                              fontFamily: _isUrduText(_pages[_currentPage])
-                                                  ? 'JameelNooriNastaleeq'
-                                                  : 'Poppins',
-                                              fontSize: 24, // Increased by 2 points
-                                              height: 1.8,
-                                              color: textColor,
+                                      Builder(
+                                        builder: (context) {
+                                          final safePage = (_currentPage >= 0 && _currentPage < _pages.length) ? _currentPage : 0;
+                                          final pageText = _pages.isNotEmpty ? _pages[safePage] : '';
+                                          return GestureDetector(
+                                            onLongPress: () {},
+                                            child: Directionality(
+                                              textDirection: TextDirection.rtl,
+                                              child: Text(
+                                                pageText,
+                                                style: TextStyle(
+                                                  fontFamily: _isUrduText(pageText)
+                                                      ? 'JameelNooriNastaleeq'
+                                                      : 'Poppins',
+                                                  fontSize: 24, // Increased by 2 points
+                                                  height: 1.8,
+                                                  color: textColor,
+                                                ),
+                                                textAlign: TextAlign.right,
+                                              ),
                                             ),
-                                            textAlign: TextAlign.right,
-                                          ),
-                                        ),
+                                          );
+                                        },
                                       ),
                                     ],
                                   ),
@@ -379,7 +395,11 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   @override
   void dispose() {
     _transformationController.dispose();
-    ScreenProtector.preventScreenshotOff();
+    try {
+      ScreenProtector.preventScreenshotOff();
+    } catch (e) {
+      debugPrint('ScreenProtector disable error: $e');
+    }
     super.dispose();
   }
 }

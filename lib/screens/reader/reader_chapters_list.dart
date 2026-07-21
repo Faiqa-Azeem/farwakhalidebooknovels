@@ -485,10 +485,13 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
   }
 
   void _openVoiceoverPlayer(String title, String audioUrl) {
-    // Longer delay to ensure ad is completely gone and UI is stable
-    Future.delayed(const Duration(milliseconds: 500), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       
+      // Delay to ensure ad has fully dismissed on iOS and Android
+      await Future.delayed(Duration(milliseconds: Platform.isIOS ? 500 : 300));
+      
+      if (!mounted) return;
       try {
         // Use a new navigator context to avoid stale context issues
         Navigator.of(context, rootNavigator: false).push(
@@ -735,10 +738,14 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
     final chapterName = (chapter['name'] ?? 'Untitled').toString();
     final chapterContent = (chapter['content'] ?? '').toString();
 
-    // Longer delay to ensure ad is completely gone and UI is stable
-    Future.delayed(const Duration(milliseconds: 500), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       
+      // Delay to ensure ad has fully dismissed on iOS and Android
+      await Future.delayed(Duration(milliseconds: Platform.isIOS ? 500 : 300));
+      
+      if (!mounted) return;
+      try { await _logAdEvent('navigation_start', {'chapter': chapterNumber}); } catch (_) {}
       try {
         // Use a new navigator context to avoid stale context issues
         Navigator.of(context, rootNavigator: false).push(

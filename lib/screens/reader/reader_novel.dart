@@ -590,17 +590,26 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
   }
 
   void _navigateToNovelDetail(Novel novel) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => NovelDetailScreen(novel: novel),
-      ),
-    );
-    
-    // ✅ IMPROVED: Reload ad when returning from detail screen
-    if (_interstitialAd == null && !_isAdLoading) {
-      _loadInterstitialAd();
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (Platform.isIOS) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      } else {
+        await Future.delayed(const Duration(milliseconds: 150));
+      }
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NovelDetailScreen(novel: novel),
+        ),
+      );
+      
+      // ✅ IMPROVED: Reload ad when returning from detail screen
+      if (_interstitialAd == null && !_isAdLoading) {
+        _loadInterstitialAd();
+      }
+    });
   }
 
   Widget _buildAdaptiveTitle(String title) {

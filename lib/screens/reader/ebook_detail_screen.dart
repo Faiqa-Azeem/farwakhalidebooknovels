@@ -69,7 +69,16 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
   }
 
   Future<void> _secureScreen() async {
-    await ScreenProtector.preventScreenshotOn();
+    try {
+      if (Platform.isIOS) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+      if (mounted) {
+        await ScreenProtector.preventScreenshotOn();
+      }
+    } catch (e) {
+      debugPrint('ScreenProtector enable error: $e');
+    }
   }
 
   Future<void> _loadVoiceovers() async {
@@ -694,7 +703,11 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
   @override
   void dispose() {
     _pageController.dispose();
-    ScreenProtector.preventScreenshotOff();
+    try {
+      ScreenProtector.preventScreenshotOff();
+    } catch (e) {
+      debugPrint('ScreenProtector disable error: $e');
+    }
     super.dispose();
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:screen_protector/screen_protector.dart';
@@ -42,7 +43,16 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
   }
 
   Future<void> _secureScreen() async {
-    await ScreenProtector.preventScreenshotOn();
+    try {
+      if (Platform.isIOS) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+      if (mounted) {
+        await ScreenProtector.preventScreenshotOn();
+      }
+    } catch (e) {
+      debugPrint('ScreenProtector enable error: $e');
+    }
   }
 
   Future<void> _loadAuthorName() async {
@@ -350,7 +360,11 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
   @override
   void dispose() {
     _pageController.dispose();
-    ScreenProtector.preventScreenshotOff();
+    try {
+      ScreenProtector.preventScreenshotOff();
+    } catch (e) {
+      debugPrint('ScreenProtector disable error: $e');
+    }
     super.dispose();
   }
 }

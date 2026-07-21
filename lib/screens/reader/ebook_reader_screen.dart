@@ -61,14 +61,27 @@ class _EbookReaderScreenState extends State<EbookReaderScreen> {
 
   @override
   void dispose() {
-    ScreenProtector.preventScreenshotOff();
+    try {
+      ScreenProtector.preventScreenshotOff();
+    } catch (e) {
+      debugPrint('ScreenProtector disable error: $e');
+    }
     _saveProgress(); 
     _transformationController.dispose();
     super.dispose();
   }
 
   Future<void> _secureScreen() async {
-    await ScreenProtector.preventScreenshotOn();
+    try {
+      if (Platform.isIOS) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+      if (mounted) {
+        await ScreenProtector.preventScreenshotOn();
+      }
+    } catch (e) {
+      debugPrint('ScreenProtector enable error: $e');
+    }
   }
   
   Future<void> _loadTheme() async {
@@ -302,24 +315,30 @@ class _EbookReaderScreenState extends State<EbookReaderScreen> {
                                           ),
                                         ),
                                       ),
-                                      GestureDetector(
-                                        onLongPress: () {},
-                                        child: Directionality(
-                                          textDirection: TextDirection.rtl,
-                                          child: Text(
-                                            _pages[_currentPage],
-                                            style: TextStyle(
-                                              fontFamily: _isUrduText(_pages[_currentPage])
-                                                  ? 'JameelNooriNastaleeq'
-                                                  : 'Poppins',
-                                              fontSize: 32, // Increased from 29 as requested
-                                              height: 1.8,
-                                              color: textColor,
-                                            ),
-                                            textAlign: TextAlign.right,
-                                          ),
-                                        ),
-                                      ),
+                                       Builder(
+                                         builder: (context) {
+                                           final safePage = (_currentPage >= 0 && _currentPage < _pages.length) ? _currentPage : 0;
+                                           final pageText = _pages.isNotEmpty ? _pages[safePage] : '';
+                                           return GestureDetector(
+                                             onLongPress: () {},
+                                             child: Directionality(
+                                               textDirection: TextDirection.rtl,
+                                               child: Text(
+                                                 pageText,
+                                                 style: TextStyle(
+                                                   fontFamily: _isUrduText(pageText)
+                                                       ? 'JameelNooriNastaleeq'
+                                                       : 'Poppins',
+                                                   fontSize: 32, // Increased from 29 as requested
+                                                   height: 1.8,
+                                                   color: textColor,
+                                                 ),
+                                                 textAlign: TextAlign.right,
+                                               ),
+                                             ),
+                                           );
+                                         },
+                                       ),
                                     ],
                                   ),
                                 ),
