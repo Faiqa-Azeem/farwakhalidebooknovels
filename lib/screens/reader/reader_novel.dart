@@ -4,6 +4,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:screen_protector/screen_protector.dart';
 import '../../models/novel.dart';
 import '../../utils/supabase_service.dart';
 import 'novel_detail_screen.dart';
@@ -44,6 +45,9 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     _loadNovels(refresh: true);
     _loadInterstitialAd();
     _scrollController.addListener(_onScroll);
+    try {
+      ScreenProtector.preventScreenshotOff();
+    } catch (_) {}
   }
 
   @override
@@ -285,6 +289,11 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
   // ✅ IMPROVED: Clean ad display with proper callbacks
   void _showLoadedAd() {
     if (_interstitialAd == null) return;
+
+    // Explicitly turn off screenshot protection before native ad overlays key window
+    try {
+      ScreenProtector.preventScreenshotOff();
+    } catch (_) {}
 
     _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdShowedFullScreenContent: (ad) {
@@ -590,26 +599,29 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
   }
 
   void _navigateToNovelDetail(Novel novel) async {
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      if (Platform.isIOS) {
-        await Future.delayed(const Duration(milliseconds: 500));
-      } else {
-        await Future.delayed(const Duration(milliseconds: 150));
-      }
-      if (!mounted) return;
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => NovelDetailScreen(novel: novel),
-        ),
-      );
-      
-      // ✅ IMPROVED: Reload ad when returning from detail screen
-      if (_interstitialAd == null && !_isAdLoading) {
-        _loadInterstitialAd();
-      }
-    });
+    if (!mounted) return;
+    if (Platform.isIOS) {
+      await Future.delayed(const Duration(milliseconds: 600));
+    } else {
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NovelDetailScreen(novel: novel),
+      ),
+    );
+    
+    // Ensure screenshot protection is disabled when we return to the list screen
+    try {
+      await ScreenProtector.preventScreenshotOff();
+    } catch (_) {}
+    
+    // ✅ IMPROVED: Reload ad when returning from detail screen
+    if (_interstitialAd == null && !_isAdLoading) {
+      _loadInterstitialAd();
+    }
   }
 
   Widget _buildAdaptiveTitle(String title) {

@@ -4,6 +4,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:screen_protector/screen_protector.dart';
 import '../../models/novel.dart';
 import '../../utils/supabase_service.dart';
 import 'chapter_reader_screen.dart';
@@ -51,6 +52,9 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
     _loadVoiceovers();
     _loadAuthorName();
     _preloadRewardedAd();
+    try {
+      ScreenProtector.preventScreenshotOff();
+    } catch (_) {}
   }
 
   Future<void> _loadVoiceovers() async {
@@ -205,6 +209,11 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
   }
 
   void _showLoadedRewardedAd(int chapterIndex) {
+    // Explicitly turn off screenshot protection before native ad overlays key window
+    try {
+      ScreenProtector.preventScreenshotOff();
+    } catch (_) {}
+
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
@@ -397,6 +406,11 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
   }
 
   void _showLoadedVoiceoverRewardedAd(int index, Map<String, dynamic> voice) {
+    // Explicitly turn off screenshot protection before native ad overlays key window
+    try {
+      ScreenProtector.preventScreenshotOff();
+    } catch (_) {}
+
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
@@ -485,20 +499,18 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
   }
 
   void _openVoiceoverPlayer(String title, String audioUrl) {
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      
-      // Delay to ensure ad has fully dismissed on iOS and Android
-      await Future.delayed(Duration(milliseconds: Platform.isIOS ? 500 : 300));
-      
+    Future.delayed(Duration(milliseconds: Platform.isIOS ? 600 : 250), () async {
       if (!mounted) return;
       try {
-        // Use a new navigator context to avoid stale context issues
         Navigator.of(context, rootNavigator: false).push(
           MaterialPageRoute(
             builder: (_) => VoiceoverPlayerScreen(title: title, audioUrl: audioUrl),
           ),
-        );
+        ).then((_) {
+          try {
+            ScreenProtector.preventScreenshotOff();
+          } catch (_) {}
+        });
       } catch (e) {
         debugPrint('⚠️ Navigation error opening voiceover: $e');
         // Fallback: show dialog
@@ -738,16 +750,10 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
     final chapterName = (chapter['name'] ?? 'Untitled').toString();
     final chapterContent = (chapter['content'] ?? '').toString();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      
-      // Delay to ensure ad has fully dismissed on iOS and Android
-      await Future.delayed(Duration(milliseconds: Platform.isIOS ? 500 : 300));
-      
+    Future.delayed(Duration(milliseconds: Platform.isIOS ? 600 : 250), () async {
       if (!mounted) return;
       try { await _logAdEvent('navigation_start', {'chapter': chapterNumber}); } catch (_) {}
       try {
-        // Use a new navigator context to avoid stale context issues
         Navigator.of(context, rootNavigator: false).push(
           MaterialPageRoute(
             builder: (_) => ChapterReaderScreen(
@@ -757,7 +763,11 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
               chapterNumber: chapterNumber,
             ),
           ),
-        );
+        ).then((_) {
+          try {
+            ScreenProtector.preventScreenshotOff();
+          } catch (_) {}
+        });
       } catch (e) {
         debugPrint('⚠️ Navigation error: $e');
         // Fallback: show dialog instead
