@@ -3,7 +3,7 @@ description: "eBook novel reader app for Farwa Khalid"
 
 publish_to: 'none'
 
-version: 1.0.21+64
+version: 1.0.21+65
 
 environment:
   sdk: ^3.8.1
@@ -39,7 +39,7 @@ dependencies:
   cached_network_image: ^3.3.1
   url_launcher: ^6.2.5
   screen_protector: ^1.5.1
-  in_app_purchase: ^3.2.3
+  in_app_purchase: ^3.3.0
   device_info_plus: ^11.5.0
   super_clipboard: ^0.9.1
   super_native_extensions: ^0.9.1
