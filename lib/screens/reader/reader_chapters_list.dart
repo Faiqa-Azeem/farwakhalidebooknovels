@@ -253,9 +253,9 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
       _earnedChapterIndex = chapterIndex;
       try { await _logAdEvent('rewarded_earned', {'chapterIndex': chapterIndex}); } catch (_) {}
     });
- 
-    _rewardedAd = null;
-    setState(() {});
+  
+    // Don't set _rewardedAd = null here - wait for onAdDismissedFullScreenContent callback
+    // Setting it to null immediately causes iOS blank screen issue
   }
 
   Future<void> _unlockAndOpenChapter(int chapterIndex) async {
@@ -453,9 +453,9 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
       _earnedVoiceoverData = voice;
       try { await _logAdEvent('rewarded_voiceover_earned', {'voiceIndex': index}); } catch (_) {}
     });
- 
-    _rewardedAd = null;
-    setState(() {});
+  
+    // Don't set _rewardedAd = null here - wait for onAdDismissedFullScreenContent callback
+    // Setting it to null immediately causes iOS blank screen issue
   }
 
   Future<void> _unlockAndOpenVoiceover(int index, Map<String, dynamic> voice) async {
