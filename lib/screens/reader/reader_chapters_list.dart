@@ -112,7 +112,11 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
         DateTime.now().add(const Duration(hours: unlockDurationHours));
     await prefs.setString(
         _unlockKey(chapterIndex), unlockUntil.toIso8601String());
-
+    // Don't call setState or show SnackBar here - this is called during ad display
+    // UI updates will happen after ad is dismissed
+  }
+  
+  void _showUnlockSuccessMessage() {
     if (mounted) {
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
@@ -226,6 +230,8 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
           setState(() => _isAdLoading = false);
         }
         _preloadRewardedAd(); 
+        // Show success message AFTER ad is dismissed
+        _showUnlockSuccessMessage();
         if (earnedIndex != null && mounted && earnedIndex < _chapters.length) {
           // Open the chapter after the ad has fully dismissed (prevents iOS blank screen)
           _openChapter(context, _chapters[earnedIndex], earnedIndex + 1);
@@ -335,6 +341,11 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
         DateTime.now().add(const Duration(hours: unlockDurationHours));
     await prefs.setString(
         _voiceoverUnlockKey(index), unlockUntil.toIso8601String());
+    // Don't call setState or show SnackBar here - this is called during ad display
+    // UI updates will happen after ad is dismissed
+  }
+  
+  void _showVoiceoverUnlockSuccessMessage() {
     if (mounted) {
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
@@ -425,6 +436,8 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
           setState(() => _isAdLoadingVoiceover = false);
         }
         _preloadRewardedAd(); 
+        // Show success message AFTER ad is dismissed
+        _showVoiceoverUnlockSuccessMessage();
         if (earnedIndex != null && earnedData != null && mounted) {
           _openVoiceoverPlayer(earnedData['title'] ?? 'Part ${earnedData['part_number']}', earnedData['audio_url']);
         }
