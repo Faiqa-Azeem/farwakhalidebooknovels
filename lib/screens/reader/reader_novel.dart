@@ -58,12 +58,12 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     _interstitialAd?.dispose();
     super.dispose();
   }
-
+  
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Reload ad when app comes back to foreground
     if (state == AppLifecycleState.resumed) {
-      if (_interstitialAd == null && !_isAdLoading) {
+      if (_interstitialAd == null && !_isAdLoading && mounted) {
         _loadInterstitialAd();
       }
     }
@@ -317,8 +317,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
           _navigateToNovelDetail(_selectedNovel!);
         }
         
-        // Preload next ad
-        _loadInterstitialAd();
+        // Don't preload ad here - let didChangeAppLifecycleState handle it when widget is visible
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         print('❌ Ad failed to show: ${error.code} - ${error.message}');
@@ -330,8 +329,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
           _navigateToNovelDetail(_selectedNovel!);
         }
         
-        // Try loading another ad
-        _loadInterstitialAd();
+        // Don't reload ad here - let didChangeAppLifecycleState handle it
       },
     );
 
@@ -624,10 +622,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
       await ScreenProtector.preventScreenshotOff();
     } catch (_) {}
     
-    // ✅ IMPROVED: Reload ad when returning from detail screen
-    if (_interstitialAd == null && !_isAdLoading) {
-      _loadInterstitialAd();
-    }
+    // Don't reload ad here - let didChangeAppLifecycleState handle it
   }
 
   Widget _buildAdaptiveTitle(String title) {
