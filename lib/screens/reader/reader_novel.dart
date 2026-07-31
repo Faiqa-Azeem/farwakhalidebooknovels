@@ -626,8 +626,8 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     
     if (!mounted) return;
     
-    // ✅ FIXED: Use pushReplacement to avoid navigation stack issues
-    await Navigator.pushReplacement(
+    // ✅ FIXED: Use regular push to maintain navigation stack
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => NovelDetailScreen(novel: novel),
