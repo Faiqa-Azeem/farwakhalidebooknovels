@@ -304,18 +304,14 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
         ad.dispose();
         _interstitialAd = null;
         
-        // ✅ FIXED: Extra delay for iOS to prevent blank screen
-        if (Platform.isIOS) {
-          // Wait for iOS to fully restore Flutter UI after native ad dismissal
-          await Future.delayed(const Duration(milliseconds: 500));
-          await WidgetsBinding.instance.endOfFrame;
-          await Future.delayed(const Duration(milliseconds: 300));
-        } else {
-          await Future.delayed(const Duration(milliseconds: 200));
-          await WidgetsBinding.instance.endOfFrame;
+        // Disable ScreenProtector before navigation to prevent black screen
+        try {
+          ScreenProtector.preventScreenshotOff();
+        } catch (e) {
+          debugPrint('ScreenProtector disable error: $e');
         }
         
-        // Mark ad as shown for cooldown
+        // Navigate immediately - no delay
         if (_selectedNovel != null) {
           await _markAdShown(_selectedNovel!);
           _navigateToNovelDetail(_selectedNovel!);
@@ -612,18 +608,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
   void _navigateToNovelDetail(Novel novel) async {
     if (!mounted) return;
     
-    // ✅ FIXED: Comprehensive fix for blank screen after ad on iOS
-    if (Platform.isIOS) {
-      // Multiple delays to ensure ad is fully dismissed and Flutter UI is ready
-      await Future.delayed(const Duration(milliseconds: 800));
-      // Wait for the next frame to ensure Flutter has rendered
-      await WidgetsBinding.instance.endOfFrame;
-      await Future.delayed(const Duration(milliseconds: 300));
-    } else {
-      await Future.delayed(const Duration(milliseconds: 400));
-      await WidgetsBinding.instance.endOfFrame;
-    }
-    
+    // ✅ FIXED: No delay - navigate immediately after ad dismissal
     if (!mounted) return;
     
     // ✅ FIXED: Use regular push to maintain navigation stack
