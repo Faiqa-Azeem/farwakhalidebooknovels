@@ -286,7 +286,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     }
   }
 
-  // ✅ IMPROVED: Clean ad display with proper callbacks
+  // ✅ IMPROVED: Clean ad display with proper callbacks - FIXED for iOS blank screen
   void _showLoadedAd() {
     if (_interstitialAd == null) return;
 
@@ -303,6 +303,17 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
         print('✅ Ad dismissed, navigating to detail');
         ad.dispose();
         _interstitialAd = null;
+        
+        // ✅ FIXED: Extra delay for iOS to prevent blank screen
+        if (Platform.isIOS) {
+          // Wait for iOS to fully restore Flutter UI after native ad dismissal
+          await Future.delayed(const Duration(milliseconds: 500));
+          await WidgetsBinding.instance.endOfFrame;
+          await Future.delayed(const Duration(milliseconds: 300));
+        } else {
+          await Future.delayed(const Duration(milliseconds: 200));
+          await WidgetsBinding.instance.endOfFrame;
+        }
         
         // Mark ad as shown for cooldown
         if (_selectedNovel != null) {
@@ -600,13 +611,23 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
 
   void _navigateToNovelDetail(Novel novel) async {
     if (!mounted) return;
+    
+    // ✅ FIXED: Comprehensive fix for blank screen after ad on iOS
     if (Platform.isIOS) {
-      await Future.delayed(const Duration(milliseconds: 600));
+      // Multiple delays to ensure ad is fully dismissed and Flutter UI is ready
+      await Future.delayed(const Duration(milliseconds: 800));
+      // Wait for the next frame to ensure Flutter has rendered
+      await WidgetsBinding.instance.endOfFrame;
+      await Future.delayed(const Duration(milliseconds: 300));
     } else {
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 400));
+      await WidgetsBinding.instance.endOfFrame;
     }
+    
     if (!mounted) return;
-    await Navigator.push(
+    
+    // ✅ FIXED: Use pushReplacement to avoid navigation stack issues
+    await Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) => NovelDetailScreen(novel: novel),

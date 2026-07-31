@@ -40,9 +40,35 @@ class SupabaseService {
   }
 
   /// 🧹 Clear Session Cache (Call this on Upload/Logout)
-  static void clearSessionCache() {
+  static Future<void> clearSessionCache() async {
     _fetchedThisSession.clear();
-    print("🧹 Session cache cleared.");
+    
+    // Also clear Hive caches to ensure fresh data is fetched
+    try {
+      final box = await Hive.openBox('novels_cache');
+      await box.clear();
+      print("🧹 Hive novels cache cleared.");
+    } catch (e) {
+      print("⚠️ Failed to clear Hive cache: $e");
+    }
+    
+    try {
+      final box = await Hive.openBox('scenes_cache');
+      await box.clear();
+      print("🧹 Hive scenes cache cleared.");
+    } catch (e) {
+      print("⚠️ Failed to clear scenes cache: $e");
+    }
+    
+    try {
+      final box = await Hive.openBox('chapters_cache');
+      await box.clear();
+      print("🧹 Hive chapters cache cleared.");
+    } catch (e) {
+      print("⚠️ Failed to clear chapters cache: $e");
+    }
+    
+    print("🧹 All caches cleared.");
   }
 
   /* ---------------------------------------------------- */

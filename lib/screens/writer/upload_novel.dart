@@ -584,7 +584,7 @@ class _UploadNovelScreenState extends State<UploadNovelScreen> {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text("Novel uploaded successfully")));
 
-      SupabaseService.clearSessionCache(); // Force refresh of lists
+      await SupabaseService.clearSessionCache(); // Force refresh of lists
 
       setState(() {
         _titleController.clear();
