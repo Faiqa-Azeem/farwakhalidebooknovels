@@ -553,6 +553,20 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () async {
+            // Disable ScreenProtector before navigation to avoid black screen
+            try {
+              ScreenProtector.preventScreenshotOff();
+            } catch (e) {
+              debugPrint('ScreenProtector disable error: $e');
+            }
+            if (mounted) {
+              Navigator.pop(context);
+            }
+          },
+        ),
         title: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
