@@ -263,6 +263,20 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () async {
+            // Disable ScreenProtector before navigation to avoid black screen
+            try {
+              ScreenProtector.preventScreenshotOff();
+            } catch (e) {
+              debugPrint('ScreenProtector disable error: $e');
+            }
+            if (mounted) {
+              Navigator.pop(context);
+            }
+          },
+        ),
         title: Text(
           'Episode ${widget.chapterNumber}',
           style: const TextStyle(color: Colors.white),
@@ -395,6 +409,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   @override
   void dispose() {
     _transformationController.dispose();
+    // Disable ScreenProtector immediately - it's already disabled in back button before navigation
     try {
       ScreenProtector.preventScreenshotOff();
     } catch (e) {
