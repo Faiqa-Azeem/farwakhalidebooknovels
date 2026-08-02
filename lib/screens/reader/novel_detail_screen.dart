@@ -37,22 +37,10 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
   @override
   void initState() {
     super.initState();
-    _secureScreen();
+    // ScreenProtector removed to prevent iOS black screen issues
+    // Parent screen (ReaderNovel) manages screen protection
     _loadAuthorName();
     _loadNovelContent();
-  }
-
-  Future<void> _secureScreen() async {
-    try {
-      if (Platform.isIOS) {
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-      if (mounted) {
-        await ScreenProtector.preventScreenshotOn();
-      }
-    } catch (e) {
-      debugPrint('ScreenProtector enable error: $e');
-    }
   }
 
   Future<void> _loadAuthorName() async {

@@ -554,13 +554,8 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () async {
-            // Disable ScreenProtector before navigation to avoid black screen
-            try {
-              ScreenProtector.preventScreenshotOff();
-            } catch (e) {
-              debugPrint('ScreenProtector disable error: $e');
-            }
+          onPressed: () {
+            // ScreenProtector removed to prevent iOS black screen
             if (mounted) {
               Navigator.pop(context);
             }
