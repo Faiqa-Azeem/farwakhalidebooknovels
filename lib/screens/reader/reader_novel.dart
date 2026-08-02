@@ -311,7 +311,12 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
           debugPrint('ScreenProtector disable error: $e');
         }
         
-        // Navigate immediately - no delay
+        // Add delay for iOS to prevent black screen during transition
+        if (Platform.isIOS) {
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+        
+        // Navigate after delay
         if (_selectedNovel != null) {
           await _markAdShown(_selectedNovel!);
           _navigateToNovelDetail(_selectedNovel!);

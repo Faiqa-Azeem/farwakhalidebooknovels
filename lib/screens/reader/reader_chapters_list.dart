@@ -52,9 +52,8 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
     _loadVoiceovers();
     _loadAuthorName();
     _preloadRewardedAd();
-    try {
-      ScreenProtector.preventScreenshotOff();
-    } catch (_) {}
+    // Don't enable ScreenProtector here - let parent screens manage it
+    // ScreenProtector in initState causes black screen on iOS on subsequent navigations
   }
 
   Future<void> _loadVoiceovers() async {
