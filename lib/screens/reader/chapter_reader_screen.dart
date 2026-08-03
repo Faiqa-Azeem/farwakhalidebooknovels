@@ -56,22 +56,9 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   @override
   void initState() {
     super.initState();
-    _secureScreen();
+    // ScreenProtector completely removed to prevent iOS black screen
     _loadTheme();
     _prepareChapterPages();
-  }
-
-  Future<void> _secureScreen() async {
-    try {
-      if (Platform.isIOS) {
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-      if (mounted) {
-        await ScreenProtector.preventScreenshotOn();
-      }
-    } catch (e) {
-      debugPrint('ScreenProtector enable error: $e');
-    }
   }
 
   Future<void> _loadTheme() async {
@@ -265,13 +252,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () async {
-            // Disable ScreenProtector before navigation to avoid black screen
-            try {
-              ScreenProtector.preventScreenshotOff();
-            } catch (e) {
-              debugPrint('ScreenProtector disable error: $e');
-            }
+          onPressed: () {
             if (mounted) {
               Navigator.pop(context);
             }
@@ -409,12 +390,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   @override
   void dispose() {
     _transformationController.dispose();
-    // Disable ScreenProtector immediately - it's already disabled in back button before navigation
-    try {
-      ScreenProtector.preventScreenshotOff();
-    } catch (e) {
-      debugPrint('ScreenProtector disable error: $e');
-    }
+    // ScreenProtector completely removed to prevent iOS black screen
     super.dispose();
   }
 }

@@ -90,13 +90,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () async {
-            // Disable ScreenProtector before navigation to avoid black screen
-            try {
-              ScreenProtector.preventScreenshotOff();
-            } catch (e) {
-              debugPrint('ScreenProtector disable error: $e');
-            }
+          onPressed: () {
             if (mounted) {
               Navigator.pop(context);
             }
@@ -362,12 +356,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
   @override
   void dispose() {
     _pageController.dispose();
-    // Disable ScreenProtector immediately - it's already disabled in back button before navigation
-    try {
-      ScreenProtector.preventScreenshotOff();
-    } catch (e) {
-      debugPrint('ScreenProtector disable error: $e');
-    }
+    // ScreenProtector completely removed to prevent iOS black screen
     super.dispose();
   }
 }

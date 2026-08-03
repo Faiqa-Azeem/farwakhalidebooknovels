@@ -212,11 +212,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
   }
 
   void _showLoadedRewardedAd(int chapterIndex) {
-    // Explicitly turn off screenshot protection before native ad overlays key window
-    try {
-      ScreenProtector.preventScreenshotOff();
-    } catch (_) {}
-
+    // ScreenProtector completely removed to prevent iOS black screen
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
@@ -416,11 +412,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
   }
 
   void _showLoadedVoiceoverRewardedAd(int index, Map<String, dynamic> voice) {
-    // Explicitly turn off screenshot protection before native ad overlays key window
-    try {
-      ScreenProtector.preventScreenshotOff();
-    } catch (_) {}
-
+    // ScreenProtector completely removed to prevent iOS black screen
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
@@ -518,11 +510,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
           MaterialPageRoute(
             builder: (_) => VoiceoverPlayerScreen(title: title, audioUrl: audioUrl),
           ),
-        ).then((_) {
-          try {
-            ScreenProtector.preventScreenshotOff();
-          } catch (_) {}
-        });
+        );
       } catch (e) {
         debugPrint('⚠️ Navigation error opening voiceover: $e');
         // Fallback: show dialog
@@ -784,11 +772,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList> {
               chapterNumber: chapterNumber,
             ),
           ),
-        ).then((_) {
-          try {
-            ScreenProtector.preventScreenshotOff();
-          } catch (_) {}
-        });
+        );
       } catch (e) {
         debugPrint('⚠️ Navigation error: $e');
         // Fallback: show dialog instead

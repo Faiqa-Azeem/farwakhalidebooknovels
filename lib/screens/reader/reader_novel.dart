@@ -45,9 +45,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     _loadNovels(refresh: true);
     _loadInterstitialAd();
     _scrollController.addListener(_onScroll);
-    try {
-      ScreenProtector.preventScreenshotOff();
-    } catch (_) {}
+    // ScreenProtector completely removed to prevent iOS black screen
   }
 
   @override
@@ -290,11 +288,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
   void _showLoadedAd() {
     if (_interstitialAd == null) return;
 
-    // Explicitly turn off screenshot protection before native ad overlays key window
-    try {
-      ScreenProtector.preventScreenshotOff();
-    } catch (_) {}
-
+    // ScreenProtector completely removed to prevent iOS black screen
     _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdShowedFullScreenContent: (ad) {
         print('📺 Ad displayed');
@@ -303,13 +297,6 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
         print('✅ Ad dismissed, navigating to detail');
         ad.dispose();
         _interstitialAd = null;
-        
-        // Disable ScreenProtector before navigation to prevent black screen
-        try {
-          ScreenProtector.preventScreenshotOff();
-        } catch (e) {
-          debugPrint('ScreenProtector disable error: $e');
-        }
         
         // Add delay for iOS to prevent black screen during transition
         if (Platform.isIOS) {
@@ -622,11 +609,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
       ),
     );
     
-    // Ensure screenshot protection is disabled when we return to the list screen
-    try {
-      await ScreenProtector.preventScreenshotOff();
-    } catch (_) {}
-    
+    // ScreenProtector completely removed to prevent iOS black screen
     // Don't reload ad here - let didChangeAppLifecycleState handle it
   }
 
