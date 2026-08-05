@@ -88,7 +88,14 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     }
 
     try {
-      final novels = await SupabaseService.getAllNovels(page: 1, limit: _pageSize);
+      if (refresh) {
+        await SupabaseService.clearSessionCache();
+      }
+      final novels = await SupabaseService.getAllNovels(
+        page: 1,
+        limit: _pageSize,
+        forceRefresh: refresh,
+      );
       setState(() {
         _novels = novels;
         _filteredNovels = novels;
@@ -517,9 +524,10 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
                       decoration: BoxDecoration(
                         color: Colors.grey.shade200,
                       ),
-                      child: novel.coverUrl != null
+                      child: novel.displayCoverUrl != null
                           ? CachedNetworkImage(
-                              imageUrl: novel.coverUrl!,
+                              imageUrl: novel.displayCoverUrl!,
+                              cacheKey: '${novel.id}_${novel.updatedAt.millisecondsSinceEpoch}',
                               fit: BoxFit.cover,
                               width: double.infinity,
                               height: double.infinity,

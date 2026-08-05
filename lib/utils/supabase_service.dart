@@ -304,51 +304,64 @@ class SupabaseService {
   /* ---------------------------------------------------- */
   /*  NOVELS                                              */
   /* ---------------------------------------------------- */
-  static Future<List<Novel>> getAllNovels({int page = 1, int limit = 20}) async {
+  static Future<List<Novel>> getAllNovels({
+    int page = 1,
+    int limit = 20,
+    bool forceRefresh = false,
+  }) async {
     final cacheKey = 'all_novels_page_$page';
-    
-    // 1. Try to load from Hive Cache first (FASTEST)
-    try {
-      final box = await Hive.openBox('novels_cache');
-      if (box.isNotEmpty) {
-        final cachedData = box.get(cacheKey);
-        if (cachedData != null) {
-          print("📦 Loaded novels (Page $page) from Hive Cache");
-          final novels = (cachedData as List)
-              .map((json) => Novel.fromJson(Map<String, dynamic>.from(json)))
-              .toList();
-          
-          if (!SUPABASE_ENABLED || _fetchedThisSession.contains(cacheKey)) {
-            return novels;
+
+    if (!forceRefresh) {
+      try {
+        final box = await Hive.openBox('novels_cache');
+        if (box.isNotEmpty) {
+          final cachedData = box.get(cacheKey);
+          if (cachedData != null) {
+            print("📦 Loaded novels (Page $page) from Hive Cache");
+            final novels = (cachedData as List)
+                .map((json) => Novel.fromJson(Map<String, dynamic>.from(json)))
+                .toList();
+
+            if (!SUPABASE_ENABLED || _fetchedThisSession.contains(cacheKey)) {
+              return novels;
+            }
           }
         }
+      } catch (e) {
+        print("⚠️ Hive Cache Error: $e");
       }
-    } catch (e) {
-      print("⚠️ Hive Cache Error: $e");
+    } else {
+      _fetchedThisSession.remove(cacheKey);
     }
 
-    // 2. Kill Switch Check
     if (!SUPABASE_ENABLED) {
       print("🛑 Supabase Disabled: Returning empty/cached data only.");
-      return []; 
+      return [];
     }
 
-    // 3. Network Fetch (If not in session cache)
-    if (_fetchedThisSession.contains(cacheKey)) {
-      print("⏩ Skipping fetch: Already fetched this session (Page $page).");
+    if (!forceRefresh && _fetchedThisSession.contains(cacheKey)) {
+      try {
+        final box = await Hive.openBox('novels_cache');
+        final cachedData = box.get(cacheKey);
+        if (cachedData != null) {
+          return (cachedData as List)
+              .map((json) => Novel.fromJson(Map<String, dynamic>.from(json)))
+              .toList();
+        }
+      } catch (_) {}
       return [];
     }
 
     try {
       _assertSafeFetch('novels', limit: limit);
       print("🌍 Fetching novels (Page $page) from Supabase...");
-      
+
       final int start = (page - 1) * limit;
       final int end = start + limit - 1;
 
       final response = await _client
           .from('novels')
-          .select('id, title, cover_url, author_id, created_at, updated_at, status') // Explicit columns
+          .select('id, title, cover_url, author_id, created_at, updated_at, status')
           .order('created_at', ascending: false)
           .range(start, end);
 
@@ -356,19 +369,26 @@ class SupabaseService {
           .map((json) => Novel.fromJson(json as Map<String, dynamic>))
           .toList();
 
-      // 4. Save to Cache
       final box = await Hive.openBox('novels_cache');
       await box.put(cacheKey, response);
-      
-      // 5. Mark Session
+
       _fetchedThisSession.add(cacheKey);
-      
+
       return novels;
     } catch (e) {
       print('❌ Error fetching novels: $e');
       if (e is PostgrestException) {
         print('📌 Postgrest details: ${e.message} code: ${e.code} details: ${e.details}');
       }
+      try {
+        final box = await Hive.openBox('novels_cache');
+        final cachedData = box.get(cacheKey);
+        if (cachedData != null) {
+          return (cachedData as List)
+              .map((json) => Novel.fromJson(Map<String, dynamic>.from(json)))
+              .toList();
+        }
+      } catch (_) {}
       return [];
     }
   }

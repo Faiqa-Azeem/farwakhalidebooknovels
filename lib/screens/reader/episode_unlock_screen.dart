@@ -1,10 +1,8 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
 import '../../models/novel.dart';
 import 'chapter_reader_screen.dart';
 
-/// Shown on iOS after a rewarded ad unlocks an episode.
+/// Shown after a rewarded ad unlocks an episode (iOS and Android).
 /// Keeps screen protection off this page so ads and protection never overlap.
 class EpisodeUnlockScreen extends StatelessWidget {
   final Novel novel;
@@ -28,7 +26,7 @@ class EpisodeUnlockScreen extends StatelessWidget {
           chapterName: chapterName,
           chapterContent: chapterContent,
           chapterNumber: chapterNumber,
-          enableScreenProtection: Platform.isIOS,
+          enableScreenProtection: true,
         ),
       ),
     );
@@ -111,7 +109,7 @@ class EpisodeUnlockScreen extends StatelessWidget {
                   ),
                   icon: const Icon(Icons.menu_book_rounded),
                   label: const Text(
-                    'Read Episode',
+                    'Read Now',
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                   ),
                 ),

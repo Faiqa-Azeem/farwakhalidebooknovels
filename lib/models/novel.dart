@@ -40,4 +40,12 @@ class Novel {
       'status': status,
     };
   }
+
+  /// Cache-busted URL so updated covers reload in CachedNetworkImage.
+  String? get displayCoverUrl {
+    final url = coverUrl;
+    if (url == null || url.isEmpty) return null;
+    final separator = url.contains('?') ? '&' : '?';
+    return '$url${separator}v=${updatedAt.millisecondsSinceEpoch}';
+  }
 }

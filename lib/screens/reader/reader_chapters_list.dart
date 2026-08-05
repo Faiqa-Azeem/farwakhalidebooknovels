@@ -7,7 +7,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/novel.dart';
 import '../../utils/ad_recovery_utils.dart';
 import '../../utils/supabase_service.dart';
-import 'chapter_reader_screen.dart';
 import 'episode_unlock_screen.dart';
 import 'voiceover_player_screen.dart';
 
@@ -31,6 +30,8 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   int? _selectedChapterIndex;
   int _adRetryCount = 0;
   int? _earnedChapterIndex;
+  int? _pendingAdChapterIndex;
+  bool _chapterRewardEarned = false;
   int? _earnedVoiceoverIndex;
   Map<String, dynamic>? _earnedVoiceoverData;
 
@@ -41,6 +42,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   bool _isLoadingVoices = true;
   int? _selectedVoiceoverIndex;
   bool _isAdLoadingVoiceover = false;
+  final Set<int> _unlockedChapterIndices = {};
 
   @override
   void initState() {
@@ -60,10 +62,24 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      setState(() {});
+      _refreshUnlockStates();
       if (_rewardedAd == null && !_isAdLoading) {
         _preloadRewardedAd();
       }
+    }
+  }
+
+  Future<void> _refreshUnlockStates() async {
+    final unlocked = <int>{};
+    for (var i = 0; i < _chapters.length; i++) {
+      if (await _isChapterUnlocked(i)) {
+        unlocked.add(i);
+      }
+    }
+    if (mounted) {
+      setState(() => _unlockedChapterIndices
+        ..clear()
+        ..addAll(unlocked));
     }
   }
 
@@ -104,6 +120,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
         _chapters = chapters;
         _isLoading = false;
       });
+      await _refreshUnlockStates();
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -122,8 +139,9 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
         DateTime.now().add(const Duration(hours: unlockDurationHours));
     await prefs.setString(
         _unlockKey(chapterIndex), unlockUntil.toIso8601String());
-    // Don't call setState or show SnackBar here - this is called during ad display
-    // UI updates will happen after ad is dismissed
+    if (mounted) {
+      setState(() => _unlockedChapterIndices.add(chapterIndex));
+    }
   }
   
   void _showUnlockSuccessMessage() {
@@ -223,11 +241,16 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   }
 
   void _showLoadedRewardedAd(int chapterIndex) {
-    // ScreenProtector completely removed to prevent iOS black screen
+    _pendingAdChapterIndex = chapterIndex;
+    _chapterRewardEarned = false;
+
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) async {
         ad.dispose();
-        final earnedIndex = _earnedChapterIndex;
+        final rewardEarnedFlag = _chapterRewardEarned;
+        final chapterToOpen = _pendingAdChapterIndex;
+        _chapterRewardEarned = false;
+        _pendingAdChapterIndex = null;
         _earnedChapterIndex = null;
         _rewardedAd = null;
         _selectedChapterIndex = null;
@@ -241,20 +264,30 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
           if (mounted) setState(() {});
         });
 
-        if (!mounted) return;
-        if (earnedIndex != null && earnedIndex < _chapters.length) {
-          if (Platform.isIOS) {
-            _openEpisodeUnlockScreen(_chapters[earnedIndex], earnedIndex + 1);
-          } else {
-            _showUnlockSuccessMessage();
-            _openChapter(context, _chapters[earnedIndex], earnedIndex + 1);
+        if (!mounted || chapterToOpen == null) return;
+
+        var rewardEarned = rewardEarnedFlag;
+        if (!rewardEarned) {
+          // onUserEarnedReward can fire after dismiss on some iOS devices
+          for (var i = 0; i < 15 && !rewardEarned; i++) {
+            await Future.delayed(const Duration(milliseconds: 100));
+            rewardEarned = _chapterRewardEarned;
           }
         }
+        if (!rewardEarned) {
+          rewardEarned = await _isChapterUnlocked(chapterToOpen);
+        }
+
+        if (!rewardEarned || chapterToOpen >= _chapters.length) return;
+
+        _openEpisodeUnlockScreen(_chapters[chapterToOpen], chapterToOpen + 1);
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         print('❌ Rewarded ad failed to show: ${error.code} - ${error.message}');
         ad.dispose();
         _rewardedAd = null;
+        _chapterRewardEarned = false;
+        _pendingAdChapterIndex = null;
         _earnedChapterIndex = null;
         _selectedChapterIndex = null;
         _adRetryCount = 0;
@@ -262,30 +295,25 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
           setState(() => _isAdLoading = false);
         }
         _preloadRewardedAd();
-        
+
         _unlockAndOpenChapter(chapterIndex);
       },
     );
- 
+
     _rewardedAd!.show(onUserEarnedReward: (ad, reward) async {
-      // Save unlock but delay navigation until the ad is dismissed on iOS devices
+      _chapterRewardEarned = true;
       await _saveUnlock(chapterIndex);
       _earnedChapterIndex = chapterIndex;
-      try { await _logAdEvent('rewarded_earned', {'chapterIndex': chapterIndex}); } catch (_) {}
+      try {
+        await _logAdEvent('rewarded_earned', {'chapterIndex': chapterIndex});
+      } catch (_) {}
     });
-  
-    // Don't set _rewardedAd = null here - wait for onAdDismissedFullScreenContent callback
-    // Setting it to null immediately causes iOS blank screen issue
   }
 
   Future<void> _unlockAndOpenChapter(int chapterIndex) async {
     await _saveUnlock(chapterIndex);
     final chapter = _chapters[chapterIndex];
-    if (Platform.isIOS) {
-      _openEpisodeUnlockScreen(chapter, chapterIndex + 1);
-    } else {
-      _openChapter(context, chapter, chapterIndex + 1);
-    }
+    _openEpisodeUnlockScreen(chapter, chapterIndex + 1);
   }
 
   void _showLoadingDialog() {
@@ -680,37 +708,47 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
         itemCount: _chapters.length,
         itemBuilder: (context, index) {
           final chapter = _chapters[index];
-          return FutureBuilder<bool>(
-            future: _isChapterUnlocked(index),
-            builder: (context, snapshot) {
-              final unlocked = snapshot.data ?? false;
-              final isLoadingThisChapter = _isAdLoading && _selectedChapterIndex == index;
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                elevation: 3,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: ListTile(
-                  title: Text('Episode ${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: mainBlue)),
-                  subtitle: unlocked
-                      ? Text('Unlocked', style: TextStyle(color: Colors.green.shade700, fontSize: 12))
-                      : const Text('Watch ad to unlock', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  trailing: unlocked
-                      ? const Icon(Icons.lock_open, color: Colors.green)
-                      : isLoadingThisChapter
-                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(mainBlue)))
-                          : const Icon(Icons.lock, color: mainBlue),
-                  onTap: () async {
-                    if (isLoadingThisChapter) return;
-                    if (unlocked) {
-                      _openChapter(context, chapter, index + 1);
-                    } else {
-                      setState(() { _selectedChapterIndex = index; });
-                      _showRewardedAd(index);
-                    }
-                  },
-                ),
-              );
-            },
+          final unlocked = _unlockedChapterIndices.contains(index);
+          final isLoadingThisChapter =
+              _isAdLoading && _selectedChapterIndex == index;
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            elevation: 3,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              title: Text('Episode ${index + 1}',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, color: mainBlue)),
+              subtitle: unlocked
+                  ? Text('Unlocked',
+                      style: TextStyle(
+                          color: Colors.green.shade700, fontSize: 12))
+                  : const Text('Watch ad to unlock',
+                      style: TextStyle(color: Colors.grey, fontSize: 12)),
+              trailing: unlocked
+                  ? const Icon(Icons.lock_open, color: Colors.green)
+                  : isLoadingThisChapter
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation(mainBlue)))
+                      : const Icon(Icons.lock, color: mainBlue),
+              onTap: () {
+                if (isLoadingThisChapter) return;
+                if (unlocked) {
+                  _openEpisodeUnlockScreen(chapter, index + 1);
+                } else {
+                  setState(() {
+                    _selectedChapterIndex = index;
+                  });
+                  _showRewardedAd(index);
+                }
+              },
+            ),
           );
         },
       ),
@@ -789,63 +827,20 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
     final chapterName = (chapter['name'] ?? 'Untitled').toString();
     final chapterContent = (chapter['content'] ?? '').toString();
 
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: false).push(
-        MaterialPageRoute(
-          builder: (_) => EpisodeUnlockScreen(
-            novel: widget.novel,
-            chapterName: chapterName,
-            chapterContent: chapterContent,
-            chapterNumber: chapterNumber,
-          ),
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: false)
+        .push(
+      MaterialPageRoute(
+        builder: (_) => EpisodeUnlockScreen(
+          novel: widget.novel,
+          chapterName: chapterName,
+          chapterContent: chapterContent,
+          chapterNumber: chapterNumber,
         ),
-      );
-    });
-  }
-
-  void _openChapter(
-      BuildContext context, Map<String, dynamic> chapter, int chapterNumber) {
-    final chapterName = (chapter['name'] ?? 'Untitled').toString();
-    final chapterContent = (chapter['content'] ?? '').toString();
-    final useScreenProtection = Platform.isIOS;
-
-    Future.delayed(Duration(milliseconds: Platform.isIOS ? 300 : 150), () async {
-      if (!mounted) return;
-      try { await _logAdEvent('navigation_start', {'chapter': chapterNumber}); } catch (_) {}
-      try {
-        Navigator.of(context, rootNavigator: false).push(
-          MaterialPageRoute(
-            builder: (_) => ChapterReaderScreen(
-              novel: widget.novel,
-              chapterName: chapterName,
-              chapterContent: chapterContent,
-              chapterNumber: chapterNumber,
-              enableScreenProtection: useScreenProtection,
-            ),
-          ),
-        );
-      } catch (e) {
-        debugPrint('⚠️ Navigation error: $e');
-        // Fallback: show dialog instead
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Episode'),
-              content: SingleChildScrollView(
-                child: Text(chapterContent.isEmpty ? 'Content loading...' : chapterContent),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Close'),
-                )
-              ],
-            ),
-          );
-        }
-      }
+      ),
+    )
+        .then((_) {
+      if (mounted) _refreshUnlockStates();
     });
   }
 

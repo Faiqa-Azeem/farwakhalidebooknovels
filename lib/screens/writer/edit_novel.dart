@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../utils/supabase_service.dart';
+import '../../utils/firebase_storage_service.dart';
 import 'text_editor_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -279,6 +281,81 @@ class _EditNovelScreenState extends State<EditNovelScreen> {
     }
   }
 
+  Future<void> updateNovelCover(Map<String, dynamic> novel) async {
+    final imageFile = await pickImage();
+    if (imageFile == null) return;
+
+    try {
+      final novelId = novel['id'] as String;
+      final coverPath =
+          'novels/$novelId/cover_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final coverUrl =
+          await FirebaseStorageService.uploadFile(imageFile, coverPath);
+      if (coverUrl == null) {
+        throw Exception('Cover upload failed');
+      }
+
+      final now = DateTime.now().toIso8601String();
+      await Supabase.instance.client.from('novels').update({
+        'cover_url': coverUrl,
+        'updated_at': now,
+      }).eq('id', novelId);
+
+      await SupabaseService.clearSessionCache();
+
+      setState(() {
+        novel['cover_url'] = coverUrl;
+        novel['updated_at'] = now;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Novel cover updated successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update cover: $e')),
+        );
+      }
+    }
+  }
+
+  String? _coverDisplayUrl(Map<String, dynamic> item) {
+    final url = item['cover_url'] as String?;
+    if (url == null || url.isEmpty) return null;
+    final updatedAt = item['updated_at']?.toString() ?? '';
+    final separator = url.contains('?') ? '&' : '?';
+    return '$url${separator}v=$updatedAt';
+  }
+
+  Widget? _buildCoverThumb(Map<String, dynamic> item) {
+    final url = _coverDisplayUrl(item);
+    if (url == null) {
+      return const CircleAvatar(
+        child: Icon(Icons.book_outlined),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: CachedNetworkImage(
+        imageUrl: url,
+        width: 48,
+        height: 48,
+        fit: BoxFit.cover,
+        placeholder: (_, __) => const SizedBox(
+          width: 48,
+          height: 48,
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+        errorWidget: (_, __, ___) => const CircleAvatar(
+          child: Icon(Icons.book_outlined),
+        ),
+      ),
+    );
+  }
+
   // ✅ ADDED MISSING METHODS
   Future<File?> pickImage() async {
     final picker = ImagePicker();
@@ -478,6 +555,9 @@ class _EditNovelScreenState extends State<EditNovelScreen> {
                   child: Column(
                     children: [
                       ListTile(
+                        leading: selectedType == 'Novel'
+                            ? _buildCoverThumb(item)
+                            : null,
                         title: Text(item['title'] ?? 'Untitled'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -528,6 +608,22 @@ class _EditNovelScreenState extends State<EditNovelScreen> {
                           ),
                         ),
                         if (selectedType == 'Novel') ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0, vertical: 4.0),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: OutlinedButton.icon(
+                                onPressed: () => updateNovelCover(item),
+                                icon: const Icon(Icons.photo),
+                                label: Text(
+                                  item['cover_url'] != null
+                                      ? 'Update Cover'
+                                      : 'Add Cover',
+                                ),
+                              ),
+                            ),
+                          ),
                           // Scenes
                           Padding(
                             padding: const EdgeInsets.all(8.0),

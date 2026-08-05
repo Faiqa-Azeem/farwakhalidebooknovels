@@ -541,13 +541,14 @@ class _UploadNovelScreenState extends State<UploadNovelScreen> {
       // 2️⃣ Upload cover if selected
       String? coverUrl;
       if (_coverImage != null) {
-        final coverPath = 'novels/$novelId/cover.jpg';
+        final coverPath =
+            'novels/$novelId/cover_${DateTime.now().millisecondsSinceEpoch}.jpg';
         coverUrl = await FirebaseStorageService.uploadFile(_coverImage!, coverPath);
         if (coverUrl != null) {
-          await supabase
-              .from('novels')
-              .update({'cover_url': coverUrl})
-              .eq('id', novelId);
+          await supabase.from('novels').update({
+            'cover_url': coverUrl,
+            'updated_at': DateTime.now().toIso8601String(),
+          }).eq('id', novelId);
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

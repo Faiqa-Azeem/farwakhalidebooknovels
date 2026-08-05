@@ -68,11 +68,13 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
 
   Future<void> _secureScreen() async {
     try {
-      if (Platform.isIOS) {
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-      if (mounted) {
-        await ScreenProtector.preventScreenshotOn();
+      await Future.delayed(
+        Duration(milliseconds: Platform.isIOS ? 500 : 300),
+      );
+      if (!mounted) return;
+      await ScreenProtector.preventScreenshotOn();
+      if (Platform.isAndroid) {
+        await ScreenProtector.protectDataLeakageOn();
       }
     } catch (e) {
       debugPrint('ScreenProtector enable error: $e');
@@ -411,6 +413,9 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     if (widget.enableScreenProtection) {
       try {
         ScreenProtector.preventScreenshotOff();
+        if (Platform.isAndroid) {
+          ScreenProtector.protectDataLeakageOff();
+        }
       } catch (e) {
         debugPrint('ScreenProtector disable error: $e');
       }
