@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/novel.dart';
 import '../../utils/ad_recovery_utils.dart';
+import '../../utils/screen_protection_helper.dart';
 import '../../utils/supabase_service.dart';
 import 'episode_unlock_screen.dart';
 import 'voiceover_player_screen.dart';
@@ -57,6 +58,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
     _loadVoiceovers();
     _loadAuthorName();
     _preloadRewardedAd();
+    ScreenProtectionHelper.disableForAdFlow();
   }
 
   @override
@@ -243,6 +245,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   void _showLoadedRewardedAd(int chapterIndex) {
     _pendingAdChapterIndex = chapterIndex;
     _chapterRewardEarned = false;
+    ScreenProtectionHelper.disableForAdFlow();
 
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) async {
@@ -260,6 +263,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
         }
         _preloadRewardedAd();
 
+        await ScreenProtectionHelper.disableForAdFlow();
         await recoverFromFullScreenAd(() {
           if (mounted) setState(() {});
         });
@@ -268,7 +272,6 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
 
         var rewardEarned = rewardEarnedFlag;
         if (!rewardEarned) {
-          // onUserEarnedReward can fire after dismiss on some iOS devices
           for (var i = 0; i < 15 && !rewardEarned; i++) {
             await Future.delayed(const Duration(milliseconds: 100));
             rewardEarned = _chapterRewardEarned;
@@ -828,19 +831,31 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
     final chapterContent = (chapter['content'] ?? '').toString();
 
     if (!mounted) return;
-    Navigator.of(context, rootNavigator: false)
-        .push(
-      MaterialPageRoute(
-        builder: (_) => EpisodeUnlockScreen(
-          novel: widget.novel,
-          chapterName: chapterName,
-          chapterContent: chapterContent,
-          chapterNumber: chapterNumber,
+
+    void pushUnlockScreen() {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: false)
+          .push(
+        MaterialPageRoute(
+          builder: (_) => EpisodeUnlockScreen(
+            novel: widget.novel,
+            chapterName: chapterName,
+            chapterContent: chapterContent,
+            chapterNumber: chapterNumber,
+          ),
         ),
-      ),
-    )
-        .then((_) {
-      if (mounted) _refreshUnlockStates();
+      )
+          .then((_) {
+        if (mounted) _refreshUnlockStates();
+      });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Platform.isIOS) {
+        Future.delayed(const Duration(milliseconds: 400), pushUnlockScreen);
+      } else {
+        pushUnlockScreen();
+      }
     });
   }
 

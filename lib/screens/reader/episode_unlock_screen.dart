@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../models/novel.dart';
+import '../../utils/screen_protection_helper.dart';
 import 'chapter_reader_screen.dart';
 
 /// Shown after a rewarded ad unlocks an episode (iOS and Android).
-/// Keeps screen protection off this page so ads and protection never overlap.
-class EpisodeUnlockScreen extends StatelessWidget {
+/// No screen protection here — only on the reader after Read Now.
+class EpisodeUnlockScreen extends StatefulWidget {
   final Novel novel;
   final String chapterName;
   final String chapterContent;
@@ -18,18 +19,36 @@ class EpisodeUnlockScreen extends StatelessWidget {
     required this.chapterNumber,
   });
 
-  void _openReader(BuildContext context) {
-    Navigator.of(context).push(
+  @override
+  State<EpisodeUnlockScreen> createState() => _EpisodeUnlockScreenState();
+}
+
+class _EpisodeUnlockScreenState extends State<EpisodeUnlockScreen> {
+  @override
+  void initState() {
+    super.initState();
+    ScreenProtectionHelper.disableForAdFlow();
+  }
+
+  Future<void> _openReader() async {
+    await ScreenProtectionHelper.disableForAdFlow();
+    if (!mounted) return;
+
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ChapterReaderScreen(
-          novel: novel,
-          chapterName: chapterName,
-          chapterContent: chapterContent,
-          chapterNumber: chapterNumber,
+          novel: widget.novel,
+          chapterName: widget.chapterName,
+          chapterContent: widget.chapterContent,
+          chapterNumber: widget.chapterNumber,
           enableScreenProtection: true,
         ),
       ),
     );
+
+    if (mounted) {
+      await ScreenProtectionHelper.disableForAdFlow();
+    }
   }
 
   @override
@@ -39,7 +58,7 @@ class EpisodeUnlockScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Episode $chapterNumber'),
+        title: Text('Episode ${widget.chapterNumber}'),
         backgroundColor: mainBlue,
         foregroundColor: Colors.white,
         centerTitle: true,
@@ -75,7 +94,7 @@ class EpisodeUnlockScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'You can now read Episode $chapterNumber.',
+                'You can now read Episode ${widget.chapterNumber}.',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.grey.shade700,
@@ -85,7 +104,7 @@ class EpisodeUnlockScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                novel.title,
+                widget.novel.title,
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey.shade500,
@@ -99,7 +118,7 @@ class EpisodeUnlockScreen extends StatelessWidget {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton.icon(
-                  onPressed: () => _openReader(context),
+                  onPressed: _openReader,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: mainBlue,
                     foregroundColor: Colors.white,

@@ -1,11 +1,10 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:screen_protector/screen_protector.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/novel.dart';
 import '../../models/scene.dart';
 import '../../utils/supabase_service.dart';
+import '../../utils/screen_protection_helper.dart';
 import 'reader_chapters_list.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../home_screens/login_screen.dart';
@@ -37,8 +36,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
   @override
   void initState() {
     super.initState();
-    // ScreenProtector removed to prevent iOS black screen issues
-    // Parent screen (ReaderNovel) manages screen protection
+    ScreenProtectionHelper.disableForAdFlow();
     _loadAuthorName();
     _loadNovelContent();
   }

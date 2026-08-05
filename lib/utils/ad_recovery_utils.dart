@@ -17,7 +17,7 @@ Future<void> waitForAdDismissRecovery() async {
 
   await SchedulerBinding.instance.endOfFrame;
 
-  final delayMs = Platform.isAndroid ? 500 : 300;
+  final delayMs = Platform.isAndroid ? 500 : 600;
   await Future.delayed(Duration(milliseconds: delayMs));
 
   await SchedulerBinding.instance.endOfFrame;

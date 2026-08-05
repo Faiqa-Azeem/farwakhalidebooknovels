@@ -6,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/novel.dart';
 import '../../utils/ad_recovery_utils.dart';
+import '../../utils/screen_protection_helper.dart';
 import '../../utils/supabase_service.dart';
 import 'novel_detail_screen.dart';
 
@@ -45,7 +46,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     _loadNovels(refresh: true);
     _loadInterstitialAd();
     _scrollController.addListener(_onScroll);
-    // ScreenProtector completely removed to prevent iOS black screen
+    ScreenProtectionHelper.disableForAdFlow();
   }
 
   @override
@@ -309,6 +310,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
         final novel = _selectedNovel;
         if (novel == null || !mounted) return;
 
+        await ScreenProtectionHelper.disableForAdFlow();
         await recoverFromFullScreenAd(() {
           if (mounted) setState(() {});
         });

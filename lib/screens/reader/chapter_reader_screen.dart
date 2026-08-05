@@ -1,8 +1,7 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:screen_protector/screen_protector.dart'; 
 import '../../models/novel.dart';
+import '../../utils/screen_protection_helper.dart';
 
 class ChapterReaderScreen extends StatefulWidget {
   final Novel novel;
@@ -59,26 +58,18 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.enableScreenProtection) {
-      _secureScreen();
-    }
     _loadTheme();
     _prepareChapterPages();
+    if (widget.enableScreenProtection) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _secureScreen();
+      });
+    }
   }
 
   Future<void> _secureScreen() async {
-    try {
-      await Future.delayed(
-        Duration(milliseconds: Platform.isIOS ? 500 : 300),
-      );
-      if (!mounted) return;
-      await ScreenProtector.preventScreenshotOn();
-      if (Platform.isAndroid) {
-        await ScreenProtector.protectDataLeakageOn();
-      }
-    } catch (e) {
-      debugPrint('ScreenProtector enable error: $e');
-    }
+    if (!mounted) return;
+    await ScreenProtectionHelper.enableForReader();
   }
 
   Future<void> _loadTheme() async {
@@ -411,14 +402,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   void dispose() {
     _transformationController.dispose();
     if (widget.enableScreenProtection) {
-      try {
-        ScreenProtector.preventScreenshotOff();
-        if (Platform.isAndroid) {
-          ScreenProtector.protectDataLeakageOff();
-        }
-      } catch (e) {
-        debugPrint('ScreenProtector disable error: $e');
-      }
+      ScreenProtectionHelper.disableForAdFlow();
     }
     super.dispose();
   }
