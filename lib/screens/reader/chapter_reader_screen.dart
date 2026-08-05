@@ -16,7 +16,10 @@ class ChapterReaderScreen extends StatefulWidget {
     required this.chapterName,
     required this.chapterContent,
     required this.chapterNumber,
+    this.enableScreenProtection = false,
   });
+
+  final bool enableScreenProtection;
 
   @override
   State<ChapterReaderScreen> createState() => _ChapterReaderScreenState();
@@ -56,9 +59,24 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   @override
   void initState() {
     super.initState();
-    // ScreenProtector completely removed to prevent iOS black screen
+    if (widget.enableScreenProtection) {
+      _secureScreen();
+    }
     _loadTheme();
     _prepareChapterPages();
+  }
+
+  Future<void> _secureScreen() async {
+    try {
+      if (Platform.isIOS) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+      if (mounted) {
+        await ScreenProtector.preventScreenshotOn();
+      }
+    } catch (e) {
+      debugPrint('ScreenProtector enable error: $e');
+    }
   }
 
   Future<void> _loadTheme() async {
@@ -390,7 +408,13 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   @override
   void dispose() {
     _transformationController.dispose();
-    // ScreenProtector completely removed to prevent iOS black screen
+    if (widget.enableScreenProtection) {
+      try {
+        ScreenProtector.preventScreenshotOff();
+      } catch (e) {
+        debugPrint('ScreenProtector disable error: $e');
+      }
+    }
     super.dispose();
   }
 }

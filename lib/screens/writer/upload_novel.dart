@@ -544,11 +544,16 @@ class _UploadNovelScreenState extends State<UploadNovelScreen> {
         final coverPath = 'novels/$novelId/cover.jpg';
         coverUrl = await FirebaseStorageService.uploadFile(_coverImage!, coverPath);
         if (coverUrl != null) {
-          // Update novel with cover URL
           await supabase
               .from('novels')
               .update({'cover_url': coverUrl})
               .eq('id', novelId);
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Novel created, but cover upload failed. Edit the novel to re-upload the cover.'),
+            ),
+          );
         }
       }
 
@@ -673,13 +678,21 @@ class _UploadNovelScreenState extends State<UploadNovelScreen> {
                   },
                   child: Container(
                     height: 180,
+                    width: double.infinity,
+                    clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
                       color: Colors.grey.shade200,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: Colors.grey.shade400),
                     ),
                     child: _coverImage != null
-                        ? Image.file(_coverImage!, fit: BoxFit.cover)
+                        ? Image.file(
+                            _coverImage!,
+                            width: double.infinity,
+                            height: 180,
+                            fit: BoxFit.cover,
+                            gaplessPlayback: true,
+                          )
                         : const Center(child: Text("Tap to upload cover")),
                   ),
                 ),

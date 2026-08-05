@@ -4,8 +4,8 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:screen_protector/screen_protector.dart';
 import '../../models/novel.dart';
+import '../../utils/ad_recovery_utils.dart';
 import '../../utils/supabase_service.dart';
 import 'novel_detail_screen.dart';
 
@@ -59,8 +59,9 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
   
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Reload ad when app comes back to foreground
     if (state == AppLifecycleState.resumed) {
+      // Force rebuild after returning from a full-screen ad (prevents black screen on Android)
+      if (mounted) setState(() {});
       if (_interstitialAd == null && !_isAdLoading && mounted) {
         _loadInterstitialAd();
       }
@@ -297,19 +298,17 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
         print('✅ Ad dismissed, navigating to detail');
         ad.dispose();
         _interstitialAd = null;
-        
-        // Add delay for iOS to prevent black screen during transition
-        if (Platform.isIOS) {
-          await Future.delayed(const Duration(milliseconds: 300));
-        }
-        
-        // Navigate after delay
-        if (_selectedNovel != null) {
-          await _markAdShown(_selectedNovel!);
-          _navigateToNovelDetail(_selectedNovel!);
-        }
-        
-        // Don't preload ad here - let didChangeAppLifecycleState handle it when widget is visible
+
+        final novel = _selectedNovel;
+        if (novel == null || !mounted) return;
+
+        await recoverFromFullScreenAd(() {
+          if (mounted) setState(() {});
+        });
+
+        if (!mounted) return;
+        await _markAdShown(novel);
+        _navigateToNovelDetail(novel);
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         print('❌ Ad failed to show: ${error.code} - ${error.message}');
