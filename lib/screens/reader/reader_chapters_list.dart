@@ -64,6 +64,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
+      ScreenProtectionHelper.forceDisableForAdFlow();
       _refreshUnlockStates();
       if (_rewardedAd == null && !_isAdLoading) {
         _preloadRewardedAd();
@@ -242,10 +243,10 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
     }
   }
 
-  void _showLoadedRewardedAd(int chapterIndex) {
+  void _showLoadedRewardedAd(int chapterIndex) async {
     _pendingAdChapterIndex = chapterIndex;
     _chapterRewardEarned = false;
-    ScreenProtectionHelper.disableForAdFlow();
+    await ScreenProtectionHelper.ensureDisabledBeforeAd();
 
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) async {
@@ -846,8 +847,11 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
         ),
       )
           .then((_) {
-        if (mounted) _refreshUnlockStates();
-      });
+      if (mounted) {
+        ScreenProtectionHelper.forceDisableForAdFlow();
+        _refreshUnlockStates();
+      }
+    });
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -863,6 +867,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _rewardedAd?.dispose();
+    ScreenProtectionHelper.forceDisableForAdFlow();
     super.dispose();
   }
 }

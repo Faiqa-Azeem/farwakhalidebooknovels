@@ -36,7 +36,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
   @override
   void initState() {
     super.initState();
-    ScreenProtectionHelper.disableForAdFlow();
+    ScreenProtectionHelper.forceDisableForAdFlow();
     _loadAuthorName();
     _loadNovelContent();
   }
@@ -88,7 +88,8 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
+          onPressed: () async {
+            await ScreenProtectionHelper.forceDisableForAdFlow();
             if (mounted) {
               Navigator.pop(context);
             }
@@ -348,13 +349,17 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
       MaterialPageRoute(
         builder: (context) => ReaderChaptersList(novel: widget.novel),
       ),
-    );
+    ).then((_) {
+      if (mounted) {
+        ScreenProtectionHelper.forceDisableForAdFlow();
+      }
+    });
   }
 
   @override
   void dispose() {
     _pageController.dispose();
-    // ScreenProtector completely removed to prevent iOS black screen
+    ScreenProtectionHelper.forceDisableForAdFlow();
     super.dispose();
   }
 }

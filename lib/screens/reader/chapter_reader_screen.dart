@@ -72,6 +72,23 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     await ScreenProtectionHelper.enableForReader();
   }
 
+  Future<void> _leaveReader() async {
+    if (widget.enableScreenProtection) {
+      await ScreenProtectionHelper.forceDisableForAdFlow();
+    }
+    if (mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  void deactivate() {
+    if (widget.enableScreenProtection) {
+      ScreenProtectionHelper.forceDisableForAdFlow();
+    }
+    super.deactivate();
+  }
+
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -258,16 +275,19 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
     final appBarColor = _themes[_currentTheme]!['appBar']!;
     final buttonColor = _themes[_currentTheme]!['button']!;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (!didPop) {
+          await _leaveReader();
+        }
+      },
+      child: Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (mounted) {
-              Navigator.pop(context);
-            }
-          },
+          onPressed: _leaveReader,
         ),
         title: Text(
           'Episode ${widget.chapterNumber}',
@@ -395,6 +415,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
                     ),
                   ),
       ),
+    ),
     );
   }
 
@@ -402,7 +423,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   void dispose() {
     _transformationController.dispose();
     if (widget.enableScreenProtection) {
-      ScreenProtectionHelper.disableForAdFlow();
+      ScreenProtectionHelper.forceDisableForAdFlow();
     }
     super.dispose();
   }

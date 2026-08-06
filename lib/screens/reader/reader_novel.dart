@@ -46,7 +46,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     _loadNovels(refresh: true);
     _loadInterstitialAd();
     _scrollController.addListener(_onScroll);
-    ScreenProtectionHelper.disableForAdFlow();
+    ScreenProtectionHelper.forceDisableForAdFlow();
   }
 
   @override
@@ -55,13 +55,14 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     _searchController.dispose();
     _scrollController.dispose();
     _interstitialAd?.dispose();
+    ScreenProtectionHelper.forceDisableForAdFlow();
     super.dispose();
   }
   
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Force rebuild after returning from a full-screen ad (prevents black screen on Android)
+      ScreenProtectionHelper.forceDisableForAdFlow();
       if (mounted) setState(() {});
       if (_interstitialAd == null && !_isAdLoading && mounted) {
         _loadInterstitialAd();
@@ -294,8 +295,10 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
   }
 
   // ✅ IMPROVED: Clean ad display with proper callbacks - FIXED for iOS blank screen
-  void _showLoadedAd() {
+  void _showLoadedAd() async {
     if (_interstitialAd == null) return;
+
+    await ScreenProtectionHelper.ensureDisabledBeforeAd();
 
     // ScreenProtector completely removed to prevent iOS black screen
     _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
@@ -617,9 +620,9 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
         builder: (context) => NovelDetailScreen(novel: novel),
       ),
     );
-    
-    // ScreenProtector completely removed to prevent iOS black screen
-    // Don't reload ad here - let didChangeAppLifecycleState handle it
+
+    await ScreenProtectionHelper.forceDisableForAdFlow();
+    if (mounted) setState(() {});
   }
 
   Widget _buildAdaptiveTitle(String title) {

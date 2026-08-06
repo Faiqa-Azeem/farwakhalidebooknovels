@@ -47,8 +47,14 @@ class _EpisodeUnlockScreenState extends State<EpisodeUnlockScreen> {
     );
 
     if (mounted) {
-      await ScreenProtectionHelper.disableForAdFlow();
+      await ScreenProtectionHelper.forceDisableForAdFlow();
     }
+  }
+
+  @override
+  void dispose() {
+    ScreenProtectionHelper.forceDisableForAdFlow();
+    super.dispose();
   }
 
   @override
