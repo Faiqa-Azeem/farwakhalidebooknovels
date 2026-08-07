@@ -68,8 +68,6 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
     };
   }
 
-  }
-
   Future<void> _loadVoiceovers() async {
     setState(() => _isLoadingVoices = true);
     final voiceovers = await SupabaseService.getVoiceoversForItem('ebook', widget.ebook.id);
