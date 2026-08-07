@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/novel.dart';
+import '../../utils/ad_flow_helper.dart';
 import '../../utils/ad_recovery_utils.dart';
 import '../../utils/screen_protection_helper.dart';
 import '../../utils/supabase_service.dart';
@@ -63,7 +64,10 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       ScreenProtectionHelper.disableAll();
-      if (mounted) setState(() {});
+      if (mounted) {
+        recoverAfterFullScreenAd(context: context);
+        setState(() {});
+      }
       if (_interstitialAd == null && !_isAdLoading && mounted) {
         _loadInterstitialAd();
       }
@@ -300,41 +304,56 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
 
     await ScreenProtectionHelper.ensureOffBeforeAd();
 
-    // ScreenProtector completely removed to prevent iOS black screen
-    _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
-      onAdShowedFullScreenContent: (ad) {
-        print('📺 Ad displayed');
-      },
-      onAdDismissedFullScreenContent: (ad) async {
-        print('✅ Ad dismissed, navigating to detail');
-        ad.dispose();
-        _interstitialAd = null;
+    await AdFlowHelper.presentWithIosHost(
+      context: context,
+      presentAd: (presentationContext) async {
+        _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+          onAdShowedFullScreenContent: (ad) {
+            print('📺 Ad displayed');
+          },
+          onAdDismissedFullScreenContent: (ad) async {
+            print('✅ Ad dismissed, navigating to detail');
+            ad.dispose();
+            _interstitialAd = null;
 
-        final novel = _selectedNovel;
-        if (novel == null || !mounted) return;
+            final novel = _selectedNovel;
+            if (novel == null || !mounted) return;
 
-        await ScreenProtectionHelper.ensureOffBeforeAd();
-        await waitForAdDismissRecovery();
+            await AdFlowHelper.completeAfterDismiss(
+              rootContext: context,
+              iosHostContext:
+                  Platform.isIOS ? presentationContext : null,
+              preloadNextAd: _loadInterstitialAd,
+              continueFlow: () async {
+                if (!mounted) return;
+                await _markAdShown(novel);
+                _navigateToNovelDetail(novel);
+              },
+            );
+          },
+          onAdFailedToShowFullScreenContent: (ad, error) async {
+            print('❌ Ad failed to show: ${error.code} - ${error.message}');
+            ad.dispose();
+            _interstitialAd = null;
 
-        if (!mounted) return;
-        await _markAdShown(novel);
-        _navigateToNovelDetail(novel);
-      },
-      onAdFailedToShowFullScreenContent: (ad, error) {
-        print('❌ Ad failed to show: ${error.code} - ${error.message}');
-        ad.dispose();
-        _interstitialAd = null;
-        
-        // Navigate anyway - don't block user
-        if (_selectedNovel != null) {
-          _navigateToNovelDetail(_selectedNovel!);
-        }
-        
-        // Don't reload ad here - let didChangeAppLifecycleState handle it
+            final novel = _selectedNovel;
+            if (novel == null) return;
+
+            await AdFlowHelper.completeAfterDismiss(
+              rootContext: context,
+              iosHostContext:
+                  Platform.isIOS ? presentationContext : null,
+              preloadNextAd: _loadInterstitialAd,
+              continueFlow: () async {
+                if (mounted) _navigateToNovelDetail(novel);
+              },
+            );
+          },
+        );
+
+        _interstitialAd!.show();
       },
     );
-
-    _interstitialAd!.show();
   }
 
   // ✅ IMPROVED: Protected loading dialog

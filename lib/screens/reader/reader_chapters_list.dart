@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/novel.dart';
+import '../../utils/ad_flow_helper.dart';
 import '../../utils/ad_recovery_utils.dart';
 import '../../utils/screen_protection_helper.dart';
 import '../../utils/supabase_service.dart';
@@ -65,6 +66,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
       ScreenProtectionHelper.disableAll();
+      recoverAfterFullScreenAd(context: context);
       _refreshUnlockStates();
       if (_rewardedAd == null && !_isAdLoading) {
         _preloadRewardedAd();
@@ -248,69 +250,88 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
     _chapterRewardEarned = false;
     await ScreenProtectionHelper.ensureOffBeforeAd();
 
-    _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (ad) async {
-        ad.dispose();
-        final rewardEarnedFlag = _chapterRewardEarned;
-        final chapterToOpen = _pendingAdChapterIndex;
-        _chapterRewardEarned = false;
-        _pendingAdChapterIndex = null;
-        _earnedChapterIndex = null;
-        _rewardedAd = null;
-        _selectedChapterIndex = null;
-        _adRetryCount = 0;
-        _preloadRewardedAd();
+    await AdFlowHelper.presentWithIosHost(
+      context: context,
+      presentAd: (presentationContext) async {
+        _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
+          onAdDismissedFullScreenContent: (ad) async {
+            ad.dispose();
+            final rewardEarnedFlag = _chapterRewardEarned;
+            final chapterToOpen = _pendingAdChapterIndex;
+            _chapterRewardEarned = false;
+            _pendingAdChapterIndex = null;
+            _earnedChapterIndex = null;
+            _rewardedAd = null;
+            _selectedChapterIndex = null;
+            _adRetryCount = 0;
 
-        await ScreenProtectionHelper.ensureOffBeforeAd();
-        await waitForAdDismissRecovery();
+            await AdFlowHelper.completeAfterDismiss(
+              rootContext: context,
+              iosHostContext:
+                  Platform.isIOS ? presentationContext : null,
+              preloadNextAd: _preloadRewardedAd,
+              continueFlow: () async {
+                if (!mounted || chapterToOpen == null) return;
 
-        if (!mounted || chapterToOpen == null) return;
+                var rewardEarned = rewardEarnedFlag;
+                if (!rewardEarned) {
+                  for (var i = 0; i < 15 && !rewardEarned; i++) {
+                    await Future.delayed(const Duration(milliseconds: 100));
+                    rewardEarned = _chapterRewardEarned;
+                  }
+                }
+                if (!rewardEarned) {
+                  rewardEarned = await _isChapterUnlocked(chapterToOpen);
+                }
 
-        var rewardEarned = rewardEarnedFlag;
-        if (!rewardEarned) {
-          for (var i = 0; i < 15 && !rewardEarned; i++) {
-            await Future.delayed(const Duration(milliseconds: 100));
-            rewardEarned = _chapterRewardEarned;
-          }
-        }
-        if (!rewardEarned) {
-          rewardEarned = await _isChapterUnlocked(chapterToOpen);
-        }
+                if (!rewardEarned || chapterToOpen >= _chapters.length) {
+                  if (mounted) setState(() => _isAdLoading = false);
+                  return;
+                }
 
-        if (!rewardEarned || chapterToOpen >= _chapters.length) {
-          if (mounted) setState(() => _isAdLoading = false);
-          return;
-        }
+                if (mounted) setState(() => _isAdLoading = false);
+                _openEpisodeUnlockScreen(
+                  _chapters[chapterToOpen],
+                  chapterToOpen + 1,
+                );
+              },
+            );
+          },
+          onAdFailedToShowFullScreenContent: (ad, error) async {
+            print(
+              '❌ Rewarded ad failed to show: ${error.code} - ${error.message}',
+            );
+            ad.dispose();
+            _rewardedAd = null;
+            _chapterRewardEarned = false;
+            _pendingAdChapterIndex = null;
+            _earnedChapterIndex = null;
+            _selectedChapterIndex = null;
+            _adRetryCount = 0;
 
-        if (mounted) setState(() => _isAdLoading = false);
-        _openEpisodeUnlockScreen(_chapters[chapterToOpen], chapterToOpen + 1);
-      },
-      onAdFailedToShowFullScreenContent: (ad, error) {
-        print('❌ Rewarded ad failed to show: ${error.code} - ${error.message}');
-        ad.dispose();
-        _rewardedAd = null;
-        _chapterRewardEarned = false;
-        _pendingAdChapterIndex = null;
-        _earnedChapterIndex = null;
-        _selectedChapterIndex = null;
-        _adRetryCount = 0;
-        if (mounted) {
-          setState(() => _isAdLoading = false);
-        }
-        _preloadRewardedAd();
+            await AdFlowHelper.completeAfterDismiss(
+              rootContext: context,
+              iosHostContext:
+                  Platform.isIOS ? presentationContext : null,
+              preloadNextAd: _preloadRewardedAd,
+              continueFlow: () async {
+                if (mounted) setState(() => _isAdLoading = false);
+                await _unlockAndOpenChapter(chapterIndex);
+              },
+            );
+          },
+        );
 
-        _unlockAndOpenChapter(chapterIndex);
+        _rewardedAd!.show(onUserEarnedReward: (ad, reward) async {
+          _chapterRewardEarned = true;
+          await _saveUnlock(chapterIndex);
+          _earnedChapterIndex = chapterIndex;
+          try {
+            await _logAdEvent('rewarded_earned', {'chapterIndex': chapterIndex});
+          } catch (_) {}
+        });
       },
     );
-
-    _rewardedAd!.show(onUserEarnedReward: (ad, reward) async {
-      _chapterRewardEarned = true;
-      await _saveUnlock(chapterIndex);
-      _earnedChapterIndex = chapterIndex;
-      try {
-        await _logAdEvent('rewarded_earned', {'chapterIndex': chapterIndex});
-      } catch (_) {}
-    });
   }
 
   Future<void> _unlockAndOpenChapter(int chapterIndex) async {
@@ -468,60 +489,72 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   void _showLoadedVoiceoverRewardedAd(int index, Map<String, dynamic> voice) async {
     await ScreenProtectionHelper.ensureOffBeforeAd();
 
-    _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (ad) async {
-        ad.dispose();
-        final earnedIndex = _earnedVoiceoverIndex;
-        final earnedData = _earnedVoiceoverData;
-        _earnedVoiceoverIndex = null;
-        _earnedVoiceoverData = null;
-        _rewardedAd = null;
-        _selectedVoiceoverIndex = null;
-        _adRetryCount = 0;
-        if (mounted) {
-          setState(() => _isAdLoadingVoiceover = false);
-        }
-        _preloadRewardedAd();
+    await AdFlowHelper.presentWithIosHost(
+      context: context,
+      presentAd: (presentationContext) async {
+        _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
+          onAdDismissedFullScreenContent: (ad) async {
+            ad.dispose();
+            final earnedIndex = _earnedVoiceoverIndex;
+            final earnedData = _earnedVoiceoverData;
+            _earnedVoiceoverIndex = null;
+            _earnedVoiceoverData = null;
+            _rewardedAd = null;
+            _selectedVoiceoverIndex = null;
+            _adRetryCount = 0;
 
-        await ScreenProtectionHelper.ensureOffBeforeAd();
-        await waitForAdDismissRecovery();
+            await AdFlowHelper.completeAfterDismiss(
+              rootContext: context,
+              iosHostContext:
+                  Platform.isIOS ? presentationContext : null,
+              preloadNextAd: _preloadRewardedAd,
+              continueFlow: () async {
+                if (!mounted) return;
+                if (mounted) setState(() => _isAdLoadingVoiceover = false);
+                _showVoiceoverUnlockSuccessMessage();
+                if (earnedIndex != null && earnedData != null) {
+                  _openVoiceoverPlayer(
+                    earnedData['title'] ?? 'Part ${earnedData['part_number']}',
+                    earnedData['audio_url'],
+                  );
+                }
+              },
+            );
+          },
+          onAdFailedToShowFullScreenContent: (ad, error) async {
+            print(
+              '❌ Rewarded ad failed to show: ${error.code} - ${error.message}',
+            );
+            ad.dispose();
+            _rewardedAd = null;
+            _earnedVoiceoverIndex = null;
+            _earnedVoiceoverData = null;
+            _selectedVoiceoverIndex = null;
+            _adRetryCount = 0;
 
-        if (!mounted) return;
-        _showVoiceoverUnlockSuccessMessage();
-        if (earnedIndex != null && earnedData != null) {
-          _openVoiceoverPlayer(
-            earnedData['title'] ?? 'Part ${earnedData['part_number']}',
-            earnedData['audio_url'],
-          );
-        }
-      },
-      onAdFailedToShowFullScreenContent: (ad, error) {
-        print('❌ Rewarded ad failed to show: ${error.code} - ${error.message}');
-        ad.dispose();
-        _rewardedAd = null;
-        _earnedVoiceoverIndex = null;
-        _earnedVoiceoverData = null;
-        _selectedVoiceoverIndex = null;
-        _adRetryCount = 0;
-        if (mounted) {
-          setState(() => _isAdLoadingVoiceover = false);
-        }
-        _preloadRewardedAd();
-        
-        _unlockAndOpenVoiceover(index, voice);
+            await AdFlowHelper.completeAfterDismiss(
+              rootContext: context,
+              iosHostContext:
+                  Platform.isIOS ? presentationContext : null,
+              preloadNextAd: _preloadRewardedAd,
+              continueFlow: () async {
+                if (mounted) setState(() => _isAdLoadingVoiceover = false);
+                await _unlockAndOpenVoiceover(index, voice);
+              },
+            );
+          },
+        );
+
+        _rewardedAd!.show(onUserEarnedReward: (ad, reward) async {
+          await _saveVoiceoverUnlock(index);
+          _earnedVoiceoverIndex = index;
+          _earnedVoiceoverData = voice;
+          try {
+            await _logAdEvent('rewarded_voiceover_earned', {'voiceIndex': index});
+          } catch (_) {}
+        });
       },
     );
- 
-    _rewardedAd!.show(onUserEarnedReward: (ad, reward) async {
-      // Save unlock but delay navigation until the ad is dismissed on iOS devices
-      await _saveVoiceoverUnlock(index);
-      _earnedVoiceoverIndex = index;
-      _earnedVoiceoverData = voice;
-      try { await _logAdEvent('rewarded_voiceover_earned', {'voiceIndex': index}); } catch (_) {}
-    });
-  
-    // Don't set _rewardedAd = null here - wait for onAdDismissedFullScreenContent callback
-    // Setting it to null immediately causes iOS blank screen issue
   }
 
   Future<void> _unlockAndOpenVoiceover(int index, Map<String, dynamic> voice) async {
