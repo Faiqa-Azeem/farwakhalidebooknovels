@@ -78,13 +78,12 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen>
 
   Future<void> _secureScreen() async {
     if (!mounted || !widget.enableScreenProtection) return;
-    await ScreenProtectionHelper.enableForReader();
+    await ScreenProtectionHelper.enableEpisodeContentProtection();
   }
 
   Future<void> _leaveReader() async {
     if (widget.enableScreenProtection) {
-      await ScreenProtectionHelper.disableForReader();
-      await ScreenProtectionHelper.disableForAdFlow();
+      await ScreenProtectionHelper.disableAll();
     }
     if (mounted) {
       Navigator.pop(context);
@@ -96,8 +95,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen>
     WidgetsBinding.instance.removeObserver(this);
     _transformationController.dispose();
     if (widget.enableScreenProtection) {
-      ScreenProtectionHelper.disableForReader();
-      ScreenProtectionHelper.disableForAdFlow();
+      ScreenProtectionHelper.disableAll();
     }
     super.dispose();
   }

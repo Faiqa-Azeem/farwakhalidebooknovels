@@ -36,7 +36,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
   @override
   void initState() {
     super.initState();
-    ScreenProtectionHelper.forceDisableForAdFlow();
+    ScreenProtectionHelper.disableAll();
     _loadAuthorName();
     _loadNovelContent();
   }
@@ -89,7 +89,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
-            await ScreenProtectionHelper.forceDisableForAdFlow();
+            await ScreenProtectionHelper.disableAll();
             if (mounted) {
               Navigator.pop(context);
             }
@@ -351,7 +351,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
       ),
     ).then((_) {
       if (mounted) {
-        ScreenProtectionHelper.forceDisableForAdFlow();
+        ScreenProtectionHelper.disableAll();
       }
     });
   }
@@ -359,7 +359,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
   @override
   void dispose() {
     _pageController.dispose();
-    ScreenProtectionHelper.forceDisableForAdFlow();
+    ScreenProtectionHelper.disableAll();
     super.dispose();
   }
 }

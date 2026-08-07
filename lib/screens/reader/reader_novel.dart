@@ -46,7 +46,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     _loadNovels(refresh: true);
     _loadInterstitialAd();
     _scrollController.addListener(_onScroll);
-    ScreenProtectionHelper.forceDisableForAdFlow();
+    ScreenProtectionHelper.disableAll();
   }
 
   @override
@@ -55,14 +55,14 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     _searchController.dispose();
     _scrollController.dispose();
     _interstitialAd?.dispose();
-    ScreenProtectionHelper.forceDisableForAdFlow();
+    ScreenProtectionHelper.disableAll();
     super.dispose();
   }
   
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      ScreenProtectionHelper.forceDisableForAdFlow();
+      ScreenProtectionHelper.disableAll();
       if (mounted) setState(() {});
       if (_interstitialAd == null && !_isAdLoading && mounted) {
         _loadInterstitialAd();
@@ -298,7 +298,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
   void _showLoadedAd() async {
     if (_interstitialAd == null) return;
 
-    await ScreenProtectionHelper.ensureDisabledBeforeAd();
+    await ScreenProtectionHelper.ensureOffBeforeAd();
 
     // ScreenProtector completely removed to prevent iOS black screen
     _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
@@ -313,7 +313,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
         final novel = _selectedNovel;
         if (novel == null || !mounted) return;
 
-        await ScreenProtectionHelper.ensureDisabledBeforeAd();
+        await ScreenProtectionHelper.ensureOffBeforeAd();
         await waitForAdDismissRecovery();
 
         if (!mounted) return;
@@ -619,7 +619,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
       ),
     );
 
-    await ScreenProtectionHelper.forceDisableForAdFlow();
+    await ScreenProtectionHelper.disableAll();
     if (mounted) setState(() {});
   }
 

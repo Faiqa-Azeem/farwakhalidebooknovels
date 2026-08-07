@@ -58,13 +58,13 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
     _loadVoiceovers();
     _loadAuthorName();
     _preloadRewardedAd();
-    ScreenProtectionHelper.disableForAdFlow();
+    ScreenProtectionHelper.disableAll();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      ScreenProtectionHelper.forceDisableForAdFlow();
+      ScreenProtectionHelper.disableAll();
       _refreshUnlockStates();
       if (_rewardedAd == null && !_isAdLoading) {
         _preloadRewardedAd();
@@ -246,7 +246,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   void _showLoadedRewardedAd(int chapterIndex) async {
     _pendingAdChapterIndex = chapterIndex;
     _chapterRewardEarned = false;
-    await ScreenProtectionHelper.ensureDisabledBeforeAd();
+    await ScreenProtectionHelper.ensureOffBeforeAd();
 
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) async {
@@ -261,7 +261,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
         _adRetryCount = 0;
         _preloadRewardedAd();
 
-        await ScreenProtectionHelper.ensureDisabledBeforeAd();
+        await ScreenProtectionHelper.ensureOffBeforeAd();
         await waitForAdDismissRecovery();
 
         if (!mounted || chapterToOpen == null) return;
@@ -466,7 +466,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   }
 
   void _showLoadedVoiceoverRewardedAd(int index, Map<String, dynamic> voice) async {
-    await ScreenProtectionHelper.ensureDisabledBeforeAd();
+    await ScreenProtectionHelper.ensureOffBeforeAd();
 
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) async {
@@ -483,7 +483,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
         }
         _preloadRewardedAd();
 
-        await ScreenProtectionHelper.ensureDisabledBeforeAd();
+        await ScreenProtectionHelper.ensureOffBeforeAd();
         await waitForAdDismissRecovery();
 
         if (!mounted) return;
@@ -843,7 +843,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
       ),
     ).then((_) {
       if (mounted) {
-        ScreenProtectionHelper.disableForAdFlow();
+        ScreenProtectionHelper.disableAll();
         _refreshUnlockStates();
       }
     });
@@ -853,7 +853,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _rewardedAd?.dispose();
-    ScreenProtectionHelper.forceDisableForAdFlow();
+    ScreenProtectionHelper.disableAll();
     super.dispose();
   }
 }

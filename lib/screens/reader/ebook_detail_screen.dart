@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // For SystemChrome if needed
-import 'package:screen_protector/screen_protector.dart';
 import 'package:hive/hive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,6 +10,7 @@ import 'package:firebase_auth/firebase_auth.dart'; // Added
 import '../home_screens/login_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/ebook.dart';
+import '../../utils/screen_protection_helper.dart';
 import '../../utils/supabase_service.dart';
 import '../../utils/purchase_service.dart'; // Added
 import 'ebook_reader_screen.dart';
@@ -44,7 +44,7 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
   @override
   void initState() {
     super.initState();
-    _secureScreen();
+    ScreenProtectionHelper.disableAll();
     _loadEbookScenes();
     _checkAccessAndPrice();
     _loadVoiceovers();
@@ -68,17 +68,6 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
     };
   }
 
-  Future<void> _secureScreen() async {
-    try {
-      if (Platform.isIOS) {
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-      if (mounted) {
-        await ScreenProtector.preventScreenshotOn();
-      }
-    } catch (e) {
-      debugPrint('ScreenProtector enable error: $e');
-    }
   }
 
   Future<void> _loadVoiceovers() async {
@@ -703,11 +692,7 @@ class _EbookDetailScreenState extends State<EbookDetailScreen>
   @override
   void dispose() {
     _pageController.dispose();
-    try {
-      ScreenProtector.preventScreenshotOff();
-    } catch (e) {
-      debugPrint('ScreenProtector disable error: $e');
-    }
+    ScreenProtectionHelper.disableAll();
     super.dispose();
   }
 }

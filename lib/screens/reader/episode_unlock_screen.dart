@@ -3,7 +3,7 @@ import '../../models/novel.dart';
 import '../../utils/screen_protection_helper.dart';
 import 'chapter_reader_screen.dart';
 
-/// Shown after a rewarded ad unlocks an episode (iOS and Android).
+/// Shown after a rewarded ad unlocks an episode.
 /// No screen protection here — only on the reader after Read Now.
 class EpisodeUnlockScreen extends StatefulWidget {
   final Novel novel;
@@ -27,7 +27,7 @@ class _EpisodeUnlockScreenState extends State<EpisodeUnlockScreen> {
   @override
   void initState() {
     super.initState();
-    ScreenProtectionHelper.disableForAdFlow();
+    ScreenProtectionHelper.disableAll();
   }
 
   Future<void> _openReader() async {
@@ -46,13 +46,13 @@ class _EpisodeUnlockScreenState extends State<EpisodeUnlockScreen> {
     );
 
     if (mounted) {
-      await ScreenProtectionHelper.disableForAdFlow();
+      await ScreenProtectionHelper.disableAll();
     }
   }
 
   @override
   void dispose() {
-    ScreenProtectionHelper.forceDisableForAdFlow();
+    ScreenProtectionHelper.disableAll();
     super.dispose();
   }
 

@@ -1,13 +1,12 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:screen_protector/screen_protector.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/ebook.dart';
+import '../../utils/screen_protection_helper.dart';
 import '../../utils/supabase_service.dart';
 
 class EbookReaderScreen extends StatefulWidget {
@@ -54,34 +53,17 @@ class _EbookReaderScreenState extends State<EbookReaderScreen> {
   @override
   void initState() {
     super.initState();
-    _secureScreen();
+    ScreenProtectionHelper.disableAll();
     _loadTheme();
     _loadEbookContent();
   }
 
   @override
   void dispose() {
-    try {
-      ScreenProtector.preventScreenshotOff();
-    } catch (e) {
-      debugPrint('ScreenProtector disable error: $e');
-    }
+    ScreenProtectionHelper.disableAll();
     _saveProgress(); 
     _transformationController.dispose();
     super.dispose();
-  }
-
-  Future<void> _secureScreen() async {
-    try {
-      if (Platform.isIOS) {
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-      if (mounted) {
-        await ScreenProtector.preventScreenshotOn();
-      }
-    } catch (e) {
-      debugPrint('ScreenProtector enable error: $e');
-    }
   }
   
   Future<void> _loadTheme() async {
