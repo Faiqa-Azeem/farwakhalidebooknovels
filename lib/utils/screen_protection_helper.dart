@@ -3,13 +3,28 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:screen_protector/screen_protector.dart';
 
-/// Keeps ads and navigation screens safe from iOS blank-screen issues.
+/// Screen protection is enabled only on episode/ebook reader content.
+/// Everywhere else (ads, lists, unlock screens) must stay unprotected.
 class ScreenProtectionHelper {
   static bool _readerProtectionActive = false;
 
   static bool get isReaderProtectionActive => _readerProtectionActive;
 
-  /// Turn off all protection layers before ads, unlock screens, and novel browsing.
+  /// Turn off reader screenshot protection (safe to call anytime).
+  static Future<void> disableForReader() async {
+    if (!_readerProtectionActive) return;
+    try {
+      await ScreenProtector.preventScreenshotOff();
+      if (Platform.isAndroid) {
+        await ScreenProtector.protectDataLeakageOff();
+      }
+      _readerProtectionActive = false;
+    } catch (e) {
+      debugPrint('ScreenProtection disable reader error: $e');
+    }
+  }
+
+  /// Full reset before ads / when leaving reader — clears any stuck iOS layers.
   static Future<void> disableForAdFlow() async {
     try {
       await ScreenProtector.preventScreenshotOff();
@@ -25,30 +40,25 @@ class ScreenProtectionHelper {
       }
       _readerProtectionActive = false;
     } catch (e) {
-      debugPrint('ScreenProtection disable error: $e');
+      debugPrint('ScreenProtection disable ad-flow error: $e');
     }
   }
 
-  /// iOS sometimes keeps protection active unless disabled twice.
-  static Future<void> forceDisableForAdFlow() async {
+  /// iOS sometimes keeps layers active; call once before showing a full-screen ad.
+  static Future<void> ensureDisabledBeforeAd() async {
     await disableForAdFlow();
     if (Platform.isIOS) {
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future.delayed(const Duration(milliseconds: 80));
       await disableForAdFlow();
     }
   }
 
-  /// Call immediately before showing any full-screen ad.
-  static Future<void> ensureDisabledBeforeAd() async {
-    await forceDisableForAdFlow();
-  }
+  /// Alias used when returning from reader / novel navigation.
+  static Future<void> forceDisableForAdFlow() => disableForAdFlow();
 
-  /// Enable protection only on the episode/ebook reader content screen.
+  /// Enable screenshot blocking on the episode reader only.
   static Future<void> enableForReader() async {
     try {
-      await Future.delayed(
-        Duration(milliseconds: Platform.isIOS ? 800 : 300),
-      );
       await ScreenProtector.preventScreenshotOn();
       if (Platform.isAndroid) {
         await ScreenProtector.protectDataLeakageOn();
@@ -57,5 +67,11 @@ class ScreenProtectionHelper {
     } catch (e) {
       debugPrint('ScreenProtection enable error: $e');
     }
+  }
+
+  /// Re-apply reader protection after overlays (theme dialog) or app resume.
+  static Future<void> reenableForReaderIfNeeded() async {
+    if (!_readerProtectionActive) return;
+    await enableForReader();
   }
 }

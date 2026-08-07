@@ -259,15 +259,10 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
         _rewardedAd = null;
         _selectedChapterIndex = null;
         _adRetryCount = 0;
-        if (mounted) {
-          setState(() => _isAdLoading = false);
-        }
         _preloadRewardedAd();
 
-        await ScreenProtectionHelper.disableForAdFlow();
-        await recoverFromFullScreenAd(() {
-          if (mounted) setState(() {});
-        });
+        await ScreenProtectionHelper.ensureDisabledBeforeAd();
+        await waitForAdDismissRecovery();
 
         if (!mounted || chapterToOpen == null) return;
 
@@ -282,8 +277,12 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
           rewardEarned = await _isChapterUnlocked(chapterToOpen);
         }
 
-        if (!rewardEarned || chapterToOpen >= _chapters.length) return;
+        if (!rewardEarned || chapterToOpen >= _chapters.length) {
+          if (mounted) setState(() => _isAdLoading = false);
+          return;
+        }
 
+        if (mounted) setState(() => _isAdLoading = false);
         _openEpisodeUnlockScreen(_chapters[chapterToOpen], chapterToOpen + 1);
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
@@ -466,8 +465,9 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
     }
   }
 
-  void _showLoadedVoiceoverRewardedAd(int index, Map<String, dynamic> voice) {
-    // ScreenProtector completely removed to prevent iOS black screen
+  void _showLoadedVoiceoverRewardedAd(int index, Map<String, dynamic> voice) async {
+    await ScreenProtectionHelper.ensureDisabledBeforeAd();
+
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) async {
         ad.dispose();
@@ -483,9 +483,8 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
         }
         _preloadRewardedAd();
 
-        await recoverFromFullScreenAd(() {
-          if (mounted) setState(() {});
-        });
+        await ScreenProtectionHelper.ensureDisabledBeforeAd();
+        await waitForAdDismissRecovery();
 
         if (!mounted) return;
         _showVoiceoverUnlockSuccessMessage();
@@ -833,32 +832,19 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
 
     if (!mounted) return;
 
-    void pushUnlockScreen() {
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: false)
-          .push(
-        MaterialPageRoute(
-          builder: (_) => EpisodeUnlockScreen(
-            novel: widget.novel,
-            chapterName: chapterName,
-            chapterContent: chapterContent,
-            chapterNumber: chapterNumber,
-          ),
+    Navigator.of(context, rootNavigator: false).push(
+      MaterialPageRoute(
+        builder: (_) => EpisodeUnlockScreen(
+          novel: widget.novel,
+          chapterName: chapterName,
+          chapterContent: chapterContent,
+          chapterNumber: chapterNumber,
         ),
-      )
-          .then((_) {
+      ),
+    ).then((_) {
       if (mounted) {
-        ScreenProtectionHelper.forceDisableForAdFlow();
+        ScreenProtectionHelper.disableForAdFlow();
         _refreshUnlockStates();
-      }
-    });
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (Platform.isIOS) {
-        Future.delayed(const Duration(milliseconds: 400), pushUnlockScreen);
-      } else {
-        pushUnlockScreen();
       }
     });
   }

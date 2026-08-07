@@ -31,7 +31,6 @@ class _EpisodeUnlockScreenState extends State<EpisodeUnlockScreen> {
   }
 
   Future<void> _openReader() async {
-    await ScreenProtectionHelper.disableForAdFlow();
     if (!mounted) return;
 
     await Navigator.of(context).push(
@@ -47,7 +46,7 @@ class _EpisodeUnlockScreenState extends State<EpisodeUnlockScreen> {
     );
 
     if (mounted) {
-      await ScreenProtectionHelper.forceDisableForAdFlow();
+      await ScreenProtectionHelper.disableForAdFlow();
     }
   }
 

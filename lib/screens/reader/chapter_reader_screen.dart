@@ -24,7 +24,8 @@ class ChapterReaderScreen extends StatefulWidget {
   State<ChapterReaderScreen> createState() => _ChapterReaderScreenState();
 }
 
-class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
+class _ChapterReaderScreenState extends State<ChapterReaderScreen>
+    with WidgetsBindingObserver {
   List<String> _pages = [];
   int _currentPage = 0;
   bool _isLoading = true;
@@ -58,23 +59,32 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadTheme();
     _prepareChapterPages();
     if (widget.enableScreenProtection) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _secureScreen();
-      });
+      _secureScreen();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        widget.enableScreenProtection &&
+        mounted) {
+      _secureScreen();
     }
   }
 
   Future<void> _secureScreen() async {
-    if (!mounted) return;
+    if (!mounted || !widget.enableScreenProtection) return;
     await ScreenProtectionHelper.enableForReader();
   }
 
   Future<void> _leaveReader() async {
     if (widget.enableScreenProtection) {
-      await ScreenProtectionHelper.forceDisableForAdFlow();
+      await ScreenProtectionHelper.disableForReader();
+      await ScreenProtectionHelper.disableForAdFlow();
     }
     if (mounted) {
       Navigator.pop(context);
@@ -82,11 +92,14 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
   }
 
   @override
-  void deactivate() {
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _transformationController.dispose();
     if (widget.enableScreenProtection) {
-      ScreenProtectionHelper.forceDisableForAdFlow();
+      ScreenProtectionHelper.disableForReader();
+      ScreenProtectionHelper.disableForAdFlow();
     }
-    super.deactivate();
+    super.dispose();
   }
 
   Future<void> _loadTheme() async {
@@ -132,7 +145,11 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
           ),
         ),
       ),
-    );
+    ).then((_) {
+      if (widget.enableScreenProtection && mounted) {
+        _secureScreen();
+      }
+    });
   }
 
   Widget _buildThemePreview(String name, String themeKey, Color bgColor, Color textColor) {
@@ -417,15 +434,6 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen> {
       ),
     ),
     );
-  }
-
-  @override
-  void dispose() {
-    _transformationController.dispose();
-    if (widget.enableScreenProtection) {
-      ScreenProtectionHelper.forceDisableForAdFlow();
-    }
-    super.dispose();
   }
 }
 

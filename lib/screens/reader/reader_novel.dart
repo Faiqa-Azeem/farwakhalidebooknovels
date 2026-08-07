@@ -313,10 +313,8 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
         final novel = _selectedNovel;
         if (novel == null || !mounted) return;
 
-        await ScreenProtectionHelper.disableForAdFlow();
-        await recoverFromFullScreenAd(() {
-          if (mounted) setState(() {});
-        });
+        await ScreenProtectionHelper.ensureDisabledBeforeAd();
+        await waitForAdDismissRecovery();
 
         if (!mounted) return;
         await _markAdShown(novel);
