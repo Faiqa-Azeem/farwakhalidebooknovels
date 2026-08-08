@@ -19,6 +19,7 @@ class ReaderNovel extends StatefulWidget {
 }
 
 class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
+  Key _surfaceKey = UniqueKey();
   final TextEditingController _searchController = TextEditingController();
   List<Novel> _novels = [];
   List<Novel> _filteredNovels = [];
@@ -66,7 +67,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
       ScreenProtectionHelper.disableAll();
       if (mounted) {
         recoverAfterFullScreenAd(context: context);
-        setState(() {});
+        setState(() => _surfaceKey = UniqueKey());
       }
       if (_interstitialAd == null && !_isAdLoading && mounted) {
         _loadInterstitialAd();
@@ -302,11 +303,9 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
   void _showLoadedAd() async {
     if (_interstitialAd == null) return;
 
-    await ScreenProtectionHelper.ensureOffBeforeAd();
-
-    await AdFlowHelper.presentWithIosHost(
+    await AdFlowHelper.presentFullScreenAd(
       context: context,
-      presentAd: (presentationContext) async {
+      showAd: () async {
         _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
           onAdShowedFullScreenContent: (ad) {
             print('📺 Ad displayed');
@@ -320,12 +319,11 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
             if (novel == null || !mounted) return;
 
             await AdFlowHelper.completeAfterDismiss(
-              rootContext: context,
-              iosHostContext:
-                  Platform.isIOS ? presentationContext : null,
+              context: context,
               preloadNextAd: _loadInterstitialAd,
               continueFlow: () async {
                 if (!mounted) return;
+                if (mounted) setState(() => _surfaceKey = UniqueKey());
                 await _markAdShown(novel);
                 _navigateToNovelDetail(novel);
               },
@@ -340,9 +338,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
             if (novel == null) return;
 
             await AdFlowHelper.completeAfterDismiss(
-              rootContext: context,
-              iosHostContext:
-                  Platform.isIOS ? presentationContext : null,
+              context: context,
               preloadNextAd: _loadInterstitialAd,
               continueFlow: () async {
                 if (mounted) _navigateToNovelDetail(novel);
@@ -389,6 +385,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     const mainBlue = Color(0xFF0D2144);
 
     return Scaffold(
+      key: _surfaceKey,
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(

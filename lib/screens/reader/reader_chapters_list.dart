@@ -14,8 +14,13 @@ import 'voiceover_player_screen.dart';
 
 class ReaderChaptersList extends StatefulWidget {
   final Novel novel;
+  final int? pendingUnlockChapterIndex;
 
-  const ReaderChaptersList({super.key, required this.novel});
+  const ReaderChaptersList({
+    super.key,
+    required this.novel,
+    this.pendingUnlockChapterIndex,
+  });
 
   @override
   State<ReaderChaptersList> createState() => _ReaderChaptersListState();
@@ -23,6 +28,7 @@ class ReaderChaptersList extends StatefulWidget {
 
 class _ReaderChaptersListState extends State<ReaderChaptersList>
     with WidgetsBindingObserver {
+  Key _surfaceKey = UniqueKey();
   List<Map<String, dynamic>> _chapters = [];
   bool _isLoading = true;
   String _authorName = '';
@@ -67,6 +73,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
     if (state == AppLifecycleState.resumed && mounted) {
       ScreenProtectionHelper.disableAll();
       recoverAfterFullScreenAd(context: context);
+      setState(() => _surfaceKey = UniqueKey());
       _refreshUnlockStates();
       if (_rewardedAd == null && !_isAdLoading) {
         _preloadRewardedAd();
@@ -126,6 +133,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
         _isLoading = false;
       });
       await _refreshUnlockStates();
+      _openPendingUnlockIfNeeded();
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -245,14 +253,22 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
     }
   }
 
+  void _openPendingUnlockIfNeeded() {
+    final idx = widget.pendingUnlockChapterIndex;
+    if (idx == null || idx < 0 || idx >= _chapters.length) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _openEpisodeUnlockScreen(_chapters[idx], idx + 1);
+    });
+  }
+
   void _showLoadedRewardedAd(int chapterIndex) async {
     _pendingAdChapterIndex = chapterIndex;
     _chapterRewardEarned = false;
-    await ScreenProtectionHelper.ensureOffBeforeAd();
 
-    await AdFlowHelper.presentWithIosHost(
+    await AdFlowHelper.presentFullScreenAd(
       context: context,
-      presentAd: (presentationContext) async {
+      showAd: () async {
         _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
           onAdDismissedFullScreenContent: (ad) async {
             ad.dispose();
@@ -266,11 +282,10 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
             _adRetryCount = 0;
 
             await AdFlowHelper.completeAfterDismiss(
-              rootContext: context,
-              iosHostContext:
-                  Platform.isIOS ? presentationContext : null,
+              context: context,
               preloadNextAd: _preloadRewardedAd,
               continueFlow: () async {
+                if (mounted) setState(() => _surfaceKey = UniqueKey());
                 if (!mounted || chapterToOpen == null) return;
 
                 var rewardEarned = rewardEarnedFlag;
@@ -290,6 +305,18 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
                 }
 
                 if (mounted) setState(() => _isAdLoading = false);
+
+                if (Platform.isIOS) {
+                  await AdFlowHelper.replaceRouteOnIos(
+                    context: context,
+                    buildScreen: () => ReaderChaptersList(
+                      novel: widget.novel,
+                      pendingUnlockChapterIndex: chapterToOpen,
+                    ),
+                  );
+                  return;
+                }
+
                 _openEpisodeUnlockScreen(
                   _chapters[chapterToOpen],
                   chapterToOpen + 1,
@@ -310,9 +337,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
             _adRetryCount = 0;
 
             await AdFlowHelper.completeAfterDismiss(
-              rootContext: context,
-              iosHostContext:
-                  Platform.isIOS ? presentationContext : null,
+              context: context,
               preloadNextAd: _preloadRewardedAd,
               continueFlow: () async {
                 if (mounted) setState(() => _isAdLoading = false);
@@ -487,11 +512,9 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   }
 
   void _showLoadedVoiceoverRewardedAd(int index, Map<String, dynamic> voice) async {
-    await ScreenProtectionHelper.ensureOffBeforeAd();
-
-    await AdFlowHelper.presentWithIosHost(
+    await AdFlowHelper.presentFullScreenAd(
       context: context,
-      presentAd: (presentationContext) async {
+      showAd: () async {
         _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
           onAdDismissedFullScreenContent: (ad) async {
             ad.dispose();
@@ -504,13 +527,11 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
             _adRetryCount = 0;
 
             await AdFlowHelper.completeAfterDismiss(
-              rootContext: context,
-              iosHostContext:
-                  Platform.isIOS ? presentationContext : null,
+              context: context,
               preloadNextAd: _preloadRewardedAd,
               continueFlow: () async {
                 if (!mounted) return;
-                if (mounted) setState(() => _isAdLoadingVoiceover = false);
+                setState(() => _isAdLoadingVoiceover = false);
                 _showVoiceoverUnlockSuccessMessage();
                 if (earnedIndex != null && earnedData != null) {
                   _openVoiceoverPlayer(
@@ -533,9 +554,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
             _adRetryCount = 0;
 
             await AdFlowHelper.completeAfterDismiss(
-              rootContext: context,
-              iosHostContext:
-                  Platform.isIOS ? presentationContext : null,
+              context: context,
               preloadNextAd: _preloadRewardedAd,
               continueFlow: () async {
                 if (mounted) setState(() => _isAdLoadingVoiceover = false);
@@ -633,6 +652,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
     const mainBlue = Color(0xFF0D2144);
 
     return Scaffold(
+      key: _surfaceKey,
       backgroundColor: Colors.white,
       appBar: AppBar(
         leading: IconButton(

@@ -10,7 +10,6 @@ class ScreenProtectionHelper {
 
   static bool get isEpisodeContentProtected => _episodeContentProtected;
 
-  /// Enable protection — call only from the episode content reader.
   static Future<void> enableEpisodeContentProtection() async {
     try {
       await _turnOffAllLayers();
@@ -24,18 +23,22 @@ class ScreenProtectionHelper {
     }
   }
 
-  /// Disable all protection — every other screen and when leaving the reader.
   static Future<void> disableAll() async {
     await _turnOffAllLayers();
     _episodeContentProtected = false;
   }
 
-  /// Must be off before any full-screen ad (prevents iOS blank/overlap).
+  /// Before ads: light disable unless the episode reader was active.
   static Future<void> ensureOffBeforeAd() async {
-    await disableAll();
-    if (Platform.isIOS) {
-      await Future.delayed(const Duration(milliseconds: 80));
+    if (_episodeContentProtected) {
       await disableAll();
+      return;
+    }
+
+    try {
+      await ScreenProtector.preventScreenshotOff();
+    } catch (e) {
+      debugPrint('ensureOffBeforeAd error: $e');
     }
   }
 

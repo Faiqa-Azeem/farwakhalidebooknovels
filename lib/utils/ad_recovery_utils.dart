@@ -4,42 +4,43 @@ import 'dart:io' show Platform;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import 'ios_surface_recovery.dart';
+
 /// Waits until the app is foreground and Flutter has finished frame work.
 Future<void> waitForAdDismissRecovery() async {
   if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
     var attempts = 0;
     while (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed &&
-        attempts < 60) {
+        attempts < 80) {
       await Future.delayed(const Duration(milliseconds: 50));
       attempts++;
     }
   }
 
-  await _waitForFrames(Platform.isIOS ? 4 : 2);
+  await _waitForFrames(Platform.isIOS ? 3 : 2);
 
-  final delayMs = Platform.isIOS ? 900 : 500;
+  final delayMs = Platform.isIOS ? 700 : 400;
   await Future.delayed(Duration(milliseconds: delayMs));
 
-  await _waitForFrames(Platform.isIOS ? 3 : 2);
+  await _waitForFrames(Platform.isIOS ? 2 : 1);
 }
 
-/// Mimics the repaint that happens when the user switches away and back.
+/// Full recovery pipeline — mimics switching away and back to the app.
 Future<void> recoverAfterFullScreenAd({BuildContext? context}) async {
   await waitForAdDismissRecovery();
+  await IosSurfaceRecovery.recoverSurface();
 
   final binding = WidgetsBinding.instance;
-  for (var i = 0; i < (Platform.isIOS ? 5 : 2); i++) {
+  for (var i = 0; i < (Platform.isIOS ? 4 : 2); i++) {
     binding.scheduleForcedFrame();
     await binding.endOfFrame;
   }
 
   if (context != null && context.mounted) {
-    final element = context as Element;
-    element.markNeedsBuild();
+    (context as Element).markNeedsBuild();
   }
 }
 
-/// Run navigation/UI work only after the surface has recovered.
 Future<void> runAfterAdRecovery(
   BuildContext context,
   Future<void> Function() action,
@@ -57,6 +58,15 @@ Future<void> runAfterAdRecovery(
     });
   });
 
+  return completer.future;
+}
+
+Future<void> runOnNextFrame(Future<void> Function() action) async {
+  final completer = Completer<void>();
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    await action();
+    if (!completer.isCompleted) completer.complete();
+  });
   return completer.future;
 }
 
