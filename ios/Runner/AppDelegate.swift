@@ -8,7 +8,13 @@ import UIKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    let didFinish = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+
+    if let controller = window?.rootViewController as? FlutterViewController {
+      NativeAdManager.shared.register(with: controller)
+    }
+
+    return didFinish
   }
 
   override func applicationDidBecomeActive(_ application: UIApplication) {

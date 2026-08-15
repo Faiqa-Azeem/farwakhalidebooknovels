@@ -5,8 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/novel.dart';
+import '../../utils/ad_unit_ids.dart';
 import '../../utils/admob_log.dart';
 import '../../utils/full_screen_ad_coordinator.dart';
+import '../../utils/native_ios_ad_service.dart';
 import '../../utils/supabase_service.dart';
 import 'episode_unlock_screen.dart';
 import 'voiceover_player_screen.dart';
@@ -30,6 +32,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   String _authorName = '';
 
   RewardedAd? _rewardedAd;
+  bool _iosRewardedReady = false;
   bool _isAdLoading = false;
   int? _selectedChapterIndex;
   int _adRetryCount = 0;
@@ -69,13 +72,16 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
     }
     if (state == AppLifecycleState.resumed && mounted) {
       _refreshUnlockStates();
-      if (_rewardedAd == null &&
+      if (!_isRewardedReady &&
           !_isAdLoading &&
-          !FullScreenAdCoordinator.instance.isFullScreenAdShowing) {
+          !isAnyFullScreenAdShowing()) {
         _preloadRewardedAd();
       }
     }
   }
+
+  bool get _isRewardedReady =>
+      Platform.isIOS ? _iosRewardedReady : _rewardedAd != null;
 
   Future<void> _refreshUnlockStates() async {
     final unlocked = <int>{};
@@ -175,16 +181,34 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   String _unlockKey(int index) => "novel_${widget.novel.id}_chapter_$index";
 
   void _preloadRewardedAd({bool isRetry = false}) {
-    if (FullScreenAdCoordinator.instance.isFullScreenAdShowing) return;
-    if (_rewardedAd != null && !isRetry) return;
+    if (isAnyFullScreenAdShowing()) return;
+    if (_isRewardedReady && !isRetry) return;
 
     AdMobLog.debug('load start (rewarded)');
     setState(() => _isAdLoading = true);
 
+    if (Platform.isIOS) {
+      NativeIosAdService.instance
+          .loadRewarded(adUnitId: AdUnitIds.episodeRewarded)
+          .then((loaded) {
+        AdMobLog.debug('loaded (rewarded): native=$loaded');
+        if (mounted) {
+          setState(() {
+            _iosRewardedReady = loaded;
+            _isAdLoading = false;
+          });
+        }
+        if (loaded) {
+          try {
+            _logAdEvent('rewarded_loaded', {'isRetry': isRetry.toString()});
+          } catch (_) {}
+        }
+      });
+      return;
+    }
+
     RewardedAd.load(
-      adUnitId: Platform.isIOS 
-          ? 'ca-app-pub-6924141712831128/8598444853' 
-          : 'ca-app-pub-6924141712831128/8822036717',
+      adUnitId: AdUnitIds.episodeRewarded,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
@@ -219,7 +243,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   void _showRewardedAd(int chapterIndex) async {
     _selectedChapterIndex = chapterIndex;
 
-    if (_rewardedAd != null) {
+    if (_isRewardedReady) {
       _showLoadedRewardedAd(chapterIndex);
       return;
     }
@@ -236,7 +260,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
       if (mounted) {
         Navigator.of(context).pop();
         
-        if (_rewardedAd != null) {
+        if (_isRewardedReady) {
           _showLoadedRewardedAd(chapterIndex);
         } else {
           if (_adRetryCount < maxAdRetries) {
@@ -252,11 +276,58 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   }
 
   void _showLoadedRewardedAd(int chapterIndex) async {
+    if (!_isRewardedReady) return;
+
+    _pendingAdChapterIndex = chapterIndex;
+
+    if (Platform.isIOS) {
+      _iosRewardedReady = false;
+
+      final result = await NativeIosAdService.instance.showRewarded();
+      if (!mounted) return;
+
+      _pendingAdChapterIndex = null;
+      _selectedChapterIndex = null;
+      _adRetryCount = 0;
+
+      switch (result) {
+        case NativeAdResult.rewarded:
+          await _saveUnlock(chapterIndex);
+          _earnedChapterIndex = chapterIndex;
+          try {
+            await _logAdEvent('rewarded_earned', {'chapterIndex': chapterIndex});
+          } catch (_) {}
+          setState(() => _isAdLoading = false);
+          _openEpisodeUnlockScreen(
+            _chapters[chapterIndex],
+            chapterIndex + 1,
+          );
+        case NativeAdResult.dismissed:
+          setState(() => _isAdLoading = false);
+          if (await _isChapterUnlocked(chapterIndex)) {
+            _openEpisodeUnlockScreen(
+              _chapters[chapterIndex],
+              chapterIndex + 1,
+            );
+          }
+        case NativeAdResult.failed:
+          setState(() => _isAdLoading = false);
+          await _unlockAndOpenChapter(chapterIndex);
+        case NativeAdResult.notReady:
+        case NativeAdResult.alreadyShowing:
+          setState(() => _isAdLoading = false);
+      }
+
+      if (mounted) {
+        _preloadRewardedAd();
+      }
+      return;
+    }
+
     final ad = _rewardedAd;
     if (ad == null) return;
 
     _rewardedAd = null;
-    _pendingAdChapterIndex = chapterIndex;
 
     final result = await FullScreenAdCoordinator.instance.showRewarded(
       ad,
@@ -427,7 +498,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   void _showVoiceoverRewardedAd(int index, Map<String, dynamic> voice) async {
     _selectedVoiceoverIndex = index;
 
-    if (_rewardedAd != null) {
+    if (_isRewardedReady) {
       _showLoadedVoiceoverRewardedAd(index, voice);
       return;
     }
@@ -444,7 +515,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
       if (mounted) {
         Navigator.of(context).pop();
         
-        if (_rewardedAd != null) {
+        if (_isRewardedReady) {
           _showLoadedVoiceoverRewardedAd(index, voice);
         } else {
           if (_adRetryCount < maxAdRetries) {
@@ -460,6 +531,56 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   }
 
   void _showLoadedVoiceoverRewardedAd(int index, Map<String, dynamic> voice) async {
+    if (!_isRewardedReady) return;
+
+    if (Platform.isIOS) {
+      _iosRewardedReady = false;
+
+      final result = await NativeIosAdService.instance.showRewarded();
+      if (!mounted) return;
+
+      _selectedVoiceoverIndex = null;
+      _adRetryCount = 0;
+
+      switch (result) {
+        case NativeAdResult.rewarded:
+          await _saveVoiceoverUnlock(index);
+          _earnedVoiceoverIndex = index;
+          _earnedVoiceoverData = voice;
+          try {
+            await _logAdEvent('rewarded_voiceover_earned', {'voiceIndex': index});
+          } catch (_) {}
+          setState(() => _isAdLoadingVoiceover = false);
+          _showVoiceoverUnlockSuccessMessage();
+          _openVoiceoverPlayer(
+            voice['title'] ?? 'Part ${voice['part_number']}',
+            voice['audio_url'],
+          );
+        case NativeAdResult.dismissed:
+          setState(() => _isAdLoadingVoiceover = false);
+          if (await _isVoiceoverUnlocked(index)) {
+            _openVoiceoverPlayer(
+              voice['title'] ?? 'Part ${voice['part_number']}',
+              voice['audio_url'],
+            );
+          }
+        case NativeAdResult.failed:
+          setState(() => _isAdLoadingVoiceover = false);
+          await _unlockAndOpenVoiceover(index, voice);
+        case NativeAdResult.notReady:
+        case NativeAdResult.alreadyShowing:
+          setState(() => _isAdLoadingVoiceover = false);
+      }
+
+      _earnedVoiceoverIndex = null;
+      _earnedVoiceoverData = null;
+
+      if (mounted) {
+        _preloadRewardedAd();
+      }
+      return;
+    }
+
     final ad = _rewardedAd;
     if (ad == null) return;
 
@@ -824,6 +945,9 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _rewardedAd?.dispose();
+    if (Platform.isIOS) {
+      NativeIosAdService.instance.disposeRewarded();
+    }
     super.dispose();
   }
 }

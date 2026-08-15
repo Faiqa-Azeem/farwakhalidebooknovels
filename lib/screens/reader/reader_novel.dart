@@ -5,8 +5,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/novel.dart';
+import '../../utils/ad_unit_ids.dart';
 import '../../utils/admob_log.dart';
 import '../../utils/full_screen_ad_coordinator.dart';
+import '../../utils/native_ios_ad_service.dart';
 import '../../utils/supabase_service.dart';
 import 'novel_detail_screen.dart';
 
@@ -25,13 +27,12 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
   String _searchQuery = '';
 
   InterstitialAd? _interstitialAd;
+  bool _iosInterstitialReady = false;
   bool _isAdLoading = false;
   Novel? _selectedNovel;
 
   static const int adCooldownMinutes = 5;
-  static String get adUnitId => Platform.isIOS 
-      ? 'ca-app-pub-6924141712831128/2224608196' 
-      : 'ca-app-pub-6924141712831128/4882791708';
+  static String get adUnitId => AdUnitIds.novelInterstitial;
 
   final ScrollController _scrollController = ScrollController();
   int _currentPage = 1;
@@ -54,6 +55,9 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     _searchController.dispose();
     _scrollController.dispose();
     _interstitialAd?.dispose();
+    if (Platform.isIOS) {
+      NativeIosAdService.instance.disposeInterstitial();
+    }
     super.dispose();
   }
   
@@ -63,13 +67,16 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
       AdMobLog.debug('[iOS] lifecycle: $state');
     }
     if (state == AppLifecycleState.resumed &&
-        _interstitialAd == null &&
+        !_isInterstitialReady &&
         !_isAdLoading &&
         mounted &&
-        !FullScreenAdCoordinator.instance.isFullScreenAdShowing) {
+        !isAnyFullScreenAdShowing()) {
       _loadInterstitialAd();
     }
   }
+
+  bool get _isInterstitialReady =>
+      Platform.isIOS ? _iosInterstitialReady : _interstitialAd != null;
 
   void _onScroll() {
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200 &&
@@ -188,12 +195,27 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
 
   // ✅ IMPROVED: Clean ad loading with proper state management
   void _loadInterstitialAd() {
-    if (_isAdLoading || FullScreenAdCoordinator.instance.isFullScreenAdShowing) {
+    if (_isAdLoading || isAnyFullScreenAdShowing()) {
       return;
     }
 
     AdMobLog.debug('load start (interstitial)');
     setState(() => _isAdLoading = true);
+
+    if (Platform.isIOS) {
+      NativeIosAdService.instance
+          .loadInterstitial(adUnitId: adUnitId)
+          .then((loaded) {
+        AdMobLog.debug('loaded (interstitial): native=$loaded');
+        if (mounted) {
+          setState(() {
+            _iosInterstitialReady = loaded;
+            _isAdLoading = false;
+          });
+        }
+      });
+      return;
+    }
 
     InterstitialAd.load(
       adUnitId: adUnitId,
@@ -254,7 +276,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     _selectedNovel = novel;
 
     // 2. If ad is ready, show it immediately
-    if (_interstitialAd != null) {
+    if (_isInterstitialReady) {
       print('📺 Showing loaded ad');
       _showLoadedAd();
       return;
@@ -270,7 +292,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     // Wait loop: Check every 500ms for up to 4 seconds
     for (int i = 0; i < 8; i++) {
         await Future.delayed(const Duration(milliseconds: 500));
-        if (_interstitialAd != null) {
+        if (_isInterstitialReady) {
            break; // Ad loaded!
         }
     }
@@ -281,7 +303,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     }
 
     // 4. Final Decision
-    if (_interstitialAd != null) {
+    if (_isInterstitialReady) {
       print('✅ Ad loaded during wait, showing now');
       _showLoadedAd();
     } else {
@@ -300,9 +322,34 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
   }
 
   void _showLoadedAd() async {
-    final ad = _interstitialAd;
     final novel = _selectedNovel;
-    if (ad == null || novel == null) return;
+    if (novel == null || !_isInterstitialReady) return;
+
+    if (Platform.isIOS) {
+      _iosInterstitialReady = false;
+      final result = await NativeIosAdService.instance.showInterstitial();
+      if (!mounted) return;
+
+      switch (result) {
+        case NativeAdResult.dismissed:
+          await _markAdShown(novel);
+          await _navigateToNovelDetail(novel);
+        case NativeAdResult.failed:
+        case NativeAdResult.notReady:
+        case NativeAdResult.alreadyShowing:
+          await _navigateToNovelDetail(novel);
+        case NativeAdResult.rewarded:
+          break;
+      }
+
+      if (mounted) {
+        _loadInterstitialAd();
+      }
+      return;
+    }
+
+    final ad = _interstitialAd;
+    if (ad == null) return;
 
     _interstitialAd = null;
 

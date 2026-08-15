@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -83,7 +82,7 @@ class FullScreenAdCoordinator {
       }
     }
 
-    await _presentOnNextFrameIfIos(present);
+    await present();
     return completer.future;
   }
 
@@ -153,7 +152,7 @@ class FullScreenAdCoordinator {
       }
     }
 
-    await _presentOnNextFrameIfIos(present);
+    await present();
     return completer.future;
   }
 
@@ -178,19 +177,5 @@ class FullScreenAdCoordinator {
       if (!completer.isCompleted) completer.complete();
     });
     return completer.future;
-  }
-
-  static Future<void> _presentOnNextFrameIfIos(
-    Future<void> Function() present,
-  ) async {
-    if (Platform.isIOS) {
-      final frameCompleter = Completer<void>();
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await present();
-        if (!frameCompleter.isCompleted) frameCompleter.complete();
-      });
-      return frameCompleter.future;
-    }
-    await present();
   }
 }
