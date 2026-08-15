@@ -55,17 +55,12 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     _searchController.dispose();
     _scrollController.dispose();
     _interstitialAd?.dispose();
-    if (Platform.isIOS) {
-      NativeIosAdService.instance.disposeInterstitial();
-    }
     super.dispose();
   }
   
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (Platform.isIOS) {
-      AdMobLog.debug('[iOS] lifecycle: $state');
-    }
+    if (Platform.isIOS) return;
     if (state == AppLifecycleState.resumed &&
         !_isInterstitialReady &&
         !_isAdLoading &&
@@ -340,10 +335,6 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
           await _navigateToNovelDetail(novel);
         case NativeAdResult.rewarded:
           break;
-      }
-
-      if (mounted) {
-        _loadInterstitialAd();
       }
       return;
     }

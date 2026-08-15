@@ -67,9 +67,7 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (Platform.isIOS) {
-      AdMobLog.debug('[iOS] lifecycle: $state');
-    }
+    if (Platform.isIOS) return;
     if (state == AppLifecycleState.resumed && mounted) {
       _refreshUnlockStates();
       if (!_isRewardedReady &&
@@ -316,10 +314,6 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
         case NativeAdResult.notReady:
         case NativeAdResult.alreadyShowing:
           setState(() => _isAdLoading = false);
-      }
-
-      if (mounted) {
-        _preloadRewardedAd();
       }
       return;
     }
@@ -574,10 +568,6 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
 
       _earnedVoiceoverIndex = null;
       _earnedVoiceoverData = null;
-
-      if (mounted) {
-        _preloadRewardedAd();
-      }
       return;
     }
 
@@ -945,9 +935,6 @@ class _ReaderChaptersListState extends State<ReaderChaptersList>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _rewardedAd?.dispose();
-    if (Platform.isIOS) {
-      NativeIosAdService.instance.disposeRewarded();
-    }
     super.dispose();
   }
 }

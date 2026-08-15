@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 
 import 'admob_log.dart';
 import 'full_screen_ad_coordinator.dart';
-import 'screen_protection_helper.dart';
 
 enum NativeAdResult {
   rewarded,
@@ -42,7 +41,6 @@ class NativeIosAdService {
   Future<NativeAdResult> showInterstitial() async {
     if (!Platform.isIOS) return NativeAdResult.failed;
 
-    await ScreenProtectionHelper.ensureOffBeforeAd();
     _isShowing = true;
     AdMobLog.debug('native show requested (interstitial)');
 
@@ -72,7 +70,6 @@ class NativeIosAdService {
   Future<NativeAdResult> showRewarded() async {
     if (!Platform.isIOS) return NativeAdResult.failed;
 
-    await ScreenProtectionHelper.ensureOffBeforeAd();
     _isShowing = true;
     AdMobLog.debug('native show requested (rewarded)');
 
@@ -89,12 +86,12 @@ class NativeIosAdService {
   }
 
   Future<void> disposeInterstitial() async {
-    if (!Platform.isIOS) return;
+    if (!Platform.isIOS || _isShowing) return;
     await _channel.invokeMethod<void>('disposeInterstitial');
   }
 
   Future<void> disposeRewarded() async {
-    if (!Platform.isIOS) return;
+    if (!Platform.isIOS || _isShowing) return;
     await _channel.invokeMethod<void>('disposeRewarded');
   }
 

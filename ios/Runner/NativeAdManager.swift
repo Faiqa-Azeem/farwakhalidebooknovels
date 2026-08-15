@@ -9,8 +9,10 @@ final class NativeAdManager: NSObject {
 
   private let channelName = "com.farwa.farwa_khalid/native_ads"
 
-  private var interstitial: InterstitialAd?
-  private var rewarded: RewardedAd?
+  private var loadedInterstitial: InterstitialAd?
+  private var loadedRewarded: RewardedAd?
+  private var presentingInterstitial: InterstitialAd?
+  private var presentingRewarded: RewardedAd?
 
   private var isFullScreenAdShowing = false
   private var rewardEarned = false
@@ -27,10 +29,10 @@ final class NativeAdManager: NSObject {
     super.init()
   }
 
-  func register(with controller: FlutterViewController) {
+  func register(with messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
       name: channelName,
-      binaryMessenger: controller.binaryMessenger
+      binaryMessenger: messenger
     )
     channel.setMethodCallHandler { [weak self] call, result in
       self?.handle(call: call, result: result)
@@ -67,12 +69,10 @@ final class NativeAdManager: NSObject {
       result(isFullScreenAdShowing)
 
     case "disposeInterstitial":
-      interstitial = nil
-      result(nil)
+      disposeLoadedInterstitial(result: result)
 
     case "disposeRewarded":
-      rewarded = nil
-      result(nil)
+      disposeLoadedRewarded(result: result)
 
     default:
       result(FlutterMethodNotImplemented)
@@ -87,26 +87,30 @@ final class NativeAdManager: NSObject {
       return
     }
 
-    interstitial = nil
+    loadedInterstitial = nil
     InterstitialAd.load(with: adUnitId, request: Request()) { [weak self] ad, error in
       DispatchQueue.main.async {
         guard let self else {
           result(false)
           return
         }
+        if self.isFullScreenAdShowing {
+          result(false)
+          return
+        }
         if let error {
           self.logDebug("interstitial load failed: \(error.localizedDescription)")
-          self.interstitial = nil
+          self.loadedInterstitial = nil
           result(false)
           return
         }
         guard let ad else {
-          self.interstitial = nil
+          self.loadedInterstitial = nil
           result(false)
           return
         }
         ad.fullScreenContentDelegate = self
-        self.interstitial = ad
+        self.loadedInterstitial = ad
         self.logDebug("interstitial loaded")
         result(true)
       }
@@ -119,26 +123,30 @@ final class NativeAdManager: NSObject {
       return
     }
 
-    rewarded = nil
+    loadedRewarded = nil
     RewardedAd.load(with: adUnitId, request: Request()) { [weak self] ad, error in
       DispatchQueue.main.async {
         guard let self else {
           result(false)
           return
         }
+        if self.isFullScreenAdShowing {
+          result(false)
+          return
+        }
         if let error {
           self.logDebug("rewarded load failed: \(error.localizedDescription)")
-          self.rewarded = nil
+          self.loadedRewarded = nil
           result(false)
           return
         }
         guard let ad else {
-          self.rewarded = nil
+          self.loadedRewarded = nil
           result(false)
           return
         }
         ad.fullScreenContentDelegate = self
-        self.rewarded = ad
+        self.loadedRewarded = ad
         self.logDebug("rewarded loaded")
         result(true)
       }
@@ -154,7 +162,7 @@ final class NativeAdManager: NSObject {
       return
     }
 
-    guard let ad = interstitial else {
+    guard let ad = loadedInterstitial else {
       result("notReady")
       return
     }
@@ -170,7 +178,8 @@ final class NativeAdManager: NSObject {
       return
     }
 
-    interstitial = nil
+    loadedInterstitial = nil
+    presentingInterstitial = ad
     pendingShowResult = result
     activeAdKind = .interstitial
     isFullScreenAdShowing = true
@@ -189,7 +198,7 @@ final class NativeAdManager: NSObject {
       return
     }
 
-    guard let ad = rewarded else {
+    guard let ad = loadedRewarded else {
       result("notReady")
       return
     }
@@ -205,7 +214,8 @@ final class NativeAdManager: NSObject {
       return
     }
 
-    rewarded = nil
+    loadedRewarded = nil
+    presentingRewarded = ad
     pendingShowResult = result
     activeAdKind = .rewarded
     isFullScreenAdShowing = true
@@ -214,13 +224,35 @@ final class NativeAdManager: NSObject {
     logPresentationContext(presenter: presenter, kind: "rewarded")
 
     ad.fullScreenContentDelegate = self
-    ad.present(from: presenter) {
-      self.rewardEarned = true
-      self.logDebug("reward earned (waiting for dismissal)")
+    ad.present(from: presenter) { [weak self] in
+      self?.rewardEarned = true
+      self?.logDebug("reward earned (waiting for dismissal)")
     }
   }
 
-  // MARK: - Presenter resolution
+  // MARK: - Dispose (loaded only, never while presenting)
+
+  private func disposeLoadedInterstitial(result: @escaping FlutterResult) {
+    if isFullScreenAdShowing || presentingInterstitial != nil {
+      logDebug("disposeInterstitial ignored: ad is presenting")
+      result(nil)
+      return
+    }
+    loadedInterstitial = nil
+    result(nil)
+  }
+
+  private func disposeLoadedRewarded(result: @escaping FlutterResult) {
+    if isFullScreenAdShowing || presentingRewarded != nil {
+      logDebug("disposeRewarded ignored: ad is presenting")
+      result(nil)
+      return
+    }
+    loadedRewarded = nil
+    result(nil)
+  }
+
+  // MARK: - Presenter resolution (read-only; never mutates hierarchy)
 
   private func resolveFlutterViewController() -> FlutterViewController? {
     let activeScenes = UIApplication.shared.connectedScenes
@@ -257,11 +289,6 @@ final class NativeAdManager: NSObject {
     if let tabBarController = viewController as? UITabBarController,
        let selected = tabBarController.selectedViewController {
       return findFlutterViewController(from: selected)
-    }
-
-    if let presented = viewController.presentedViewController,
-       !presented.isBeingDismissed {
-      return findFlutterViewController(from: presented)
     }
 
     return nil
@@ -301,17 +328,51 @@ final class NativeAdManager: NSObject {
     }
 
     flutterResult?(resultValue)
+
+    DispatchQueue.main.async { [weak self] in
+      self?.logFlutterSurfaceState()
+    }
   }
 
-  private func clearActiveAdReference() {
-    switch activeAdKind {
+  private func releasePresentingAd(for kind: ActiveAdKind) {
+    switch kind {
     case .interstitial:
-      interstitial = nil
+      presentingInterstitial = nil
     case .rewarded:
-      rewarded = nil
+      presentingRewarded = nil
     case .none:
       break
     }
+  }
+
+  // MARK: - DEBUG surface observation (no manipulation)
+
+  private func logFlutterSurfaceState() {
+    #if DEBUG
+    guard let flutterVC = resolveFlutterViewController() else {
+      print("[FLUTTER_SURFACE] flutterVC = nil")
+      return
+    }
+
+    let view = flutterVC.view
+    let window = view.window
+    let scene = window?.windowScene
+    let sceneState = scene.map { String(describing: $0.activationState) } ?? "nil"
+    let presented = flutterVC.presentedViewController
+    let layerType = String(describing: type(of: view.layer))
+
+    print("[FLUTTER_SURFACE] scene = \(sceneState)")
+    print("[FLUTTER_SURFACE] window key = \(window?.isKeyWindow ?? false)")
+    print("[FLUTTER_SURFACE] window hidden = \(window?.isHidden ?? true)")
+    print("[FLUTTER_SURFACE] window alpha = \(window?.alpha ?? -1)")
+    print("[FLUTTER_SURFACE] flutterVC = alive")
+    print("[FLUTTER_SURFACE] flutterView window = \(view.window == nil ? "nil" : "alive")")
+    print("[FLUTTER_SURFACE] flutterView hidden = \(view.isHidden)")
+    print("[FLUTTER_SURFACE] flutterView alpha = \(view.alpha)")
+    print("[FLUTTER_SURFACE] flutterView bounds = \(view.bounds)")
+    print("[FLUTTER_SURFACE] presentedVC = \(presented.map { String(describing: type(of: $0)) } ?? "nil")")
+    print("[FLUTTER_SURFACE] flutterView layer = \(layerType)")
+    #endif
   }
 
   // MARK: - Logging
@@ -343,7 +404,7 @@ extension NativeAdManager: FullScreenContentDelegate {
     logDebug("dismissal callback")
 
     let kind = activeAdKind
-    clearActiveAdReference()
+    releasePresentingAd(for: kind)
 
     switch kind {
     case .interstitial:
@@ -353,6 +414,8 @@ extension NativeAdManager: FullScreenContentDelegate {
     case .none:
       isFullScreenAdShowing = false
       rewardEarned = false
+      presentingInterstitial = nil
+      presentingRewarded = nil
       logDebug("dismissal with no active ad kind")
     }
   }
@@ -362,7 +425,8 @@ extension NativeAdManager: FullScreenContentDelegate {
     didFailToPresentFullScreenContentWithError error: Error
   ) {
     logDebug("presentation failed: \(error.localizedDescription)")
-    clearActiveAdReference()
+    let kind = activeAdKind
+    releasePresentingAd(for: kind)
     completeShow(with: "failed")
   }
 }
