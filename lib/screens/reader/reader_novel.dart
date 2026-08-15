@@ -5,9 +5,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/novel.dart';
-import '../../utils/ad_flow_helper.dart';
-import '../../utils/ad_recovery_utils.dart';
-import '../../utils/screen_protection_helper.dart';
+import '../../utils/admob_log.dart';
+import '../../utils/full_screen_ad_coordinator.dart';
 import '../../utils/supabase_service.dart';
 import 'novel_detail_screen.dart';
 
@@ -19,7 +18,6 @@ class ReaderNovel extends StatefulWidget {
 }
 
 class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
-  Key _surfaceKey = UniqueKey();
   final TextEditingController _searchController = TextEditingController();
   List<Novel> _novels = [];
   List<Novel> _filteredNovels = [];
@@ -48,7 +46,6 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     _loadNovels(refresh: true);
     _loadInterstitialAd();
     _scrollController.addListener(_onScroll);
-    ScreenProtectionHelper.disableAll();
   }
 
   @override
@@ -57,21 +54,20 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     _searchController.dispose();
     _scrollController.dispose();
     _interstitialAd?.dispose();
-    ScreenProtectionHelper.disableAll();
     super.dispose();
   }
   
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      ScreenProtectionHelper.disableAll();
-      if (mounted) {
-        recoverAfterFullScreenAd(context: context);
-        setState(() => _surfaceKey = UniqueKey());
-      }
-      if (_interstitialAd == null && !_isAdLoading && mounted) {
-        _loadInterstitialAd();
-      }
+    if (Platform.isIOS) {
+      AdMobLog.debug('[iOS] lifecycle: $state');
+    }
+    if (state == AppLifecycleState.resumed &&
+        _interstitialAd == null &&
+        !_isAdLoading &&
+        mounted &&
+        !FullScreenAdCoordinator.instance.isFullScreenAdShowing) {
+      _loadInterstitialAd();
     }
   }
 
@@ -192,8 +188,11 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
 
   // ✅ IMPROVED: Clean ad loading with proper state management
   void _loadInterstitialAd() {
-    if (_isAdLoading) return; // Prevent multiple simultaneous loads
+    if (_isAdLoading || FullScreenAdCoordinator.instance.isFullScreenAdShowing) {
+      return;
+    }
 
+    AdMobLog.debug('load start (interstitial)');
     setState(() => _isAdLoading = true);
 
     InterstitialAd.load(
@@ -201,6 +200,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
+          AdMobLog.debug('loaded (interstitial)');
           print('✅ Interstitial ad loaded successfully');
           if (mounted) {
             setState(() {
@@ -299,57 +299,35 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     }
   }
 
-  // ✅ IMPROVED: Clean ad display with proper callbacks - FIXED for iOS blank screen
   void _showLoadedAd() async {
-    if (_interstitialAd == null) return;
+    final ad = _interstitialAd;
+    final novel = _selectedNovel;
+    if (ad == null || novel == null) return;
 
-    await AdFlowHelper.presentFullScreenAd(
-      context: context,
-      showAd: () async {
-        _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
-          onAdShowedFullScreenContent: (ad) {
-            print('📺 Ad displayed');
-          },
-          onAdDismissedFullScreenContent: (ad) async {
-            print('✅ Ad dismissed, navigating to detail');
-            ad.dispose();
-            _interstitialAd = null;
+    _interstitialAd = null;
 
-            final novel = _selectedNovel;
-            if (novel == null || !mounted) return;
+    final result = await FullScreenAdCoordinator.instance.showInterstitial(ad);
+    if (!mounted) return;
 
-            await AdFlowHelper.completeAfterDismiss(
-              context: context,
-              preloadNextAd: _loadInterstitialAd,
-              continueFlow: () async {
-                if (!mounted) return;
-                if (mounted) setState(() => _surfaceKey = UniqueKey());
-                await _markAdShown(novel);
-                _navigateToNovelDetail(novel);
-              },
-            );
-          },
-          onAdFailedToShowFullScreenContent: (ad, error) async {
-            print('❌ Ad failed to show: ${error.code} - ${error.message}');
-            ad.dispose();
-            _interstitialAd = null;
+    await FullScreenAdCoordinator.instance.runAfterDismiss(() async {
+      if (!mounted) return;
 
-            final novel = _selectedNovel;
-            if (novel == null) return;
+      switch (result) {
+        case FullScreenAdResult.dismissed:
+          await _markAdShown(novel);
+          await _navigateToNovelDetail(novel);
+        case FullScreenAdResult.failed:
+          await _navigateToNovelDetail(novel);
+        case FullScreenAdResult.dismissedWithReward:
+        case FullScreenAdResult.dismissedWithoutReward:
+        case FullScreenAdResult.skipped:
+          break;
+      }
+    });
 
-            await AdFlowHelper.completeAfterDismiss(
-              context: context,
-              preloadNextAd: _loadInterstitialAd,
-              continueFlow: () async {
-                if (mounted) _navigateToNovelDetail(novel);
-              },
-            );
-          },
-        );
-
-        _interstitialAd!.show();
-      },
-    );
+    if (mounted) {
+      FullScreenAdCoordinator.instance.schedulePreload(_loadInterstitialAd);
+    }
   }
 
   // ✅ IMPROVED: Protected loading dialog
@@ -385,7 +363,6 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     const mainBlue = Color(0xFF0D2144);
 
     return Scaffold(
-      key: _surfaceKey,
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
@@ -621,7 +598,7 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
     );
   }
 
-  void _navigateToNovelDetail(Novel novel) async {
+  Future<void> _navigateToNovelDetail(Novel novel) async {
     if (!mounted) return;
     
     // ✅ FIXED: No delay - navigate immediately after ad dismissal
@@ -635,7 +612,6 @@ class _ReaderNovelState extends State<ReaderNovel> with WidgetsBindingObserver {
       ),
     );
 
-    await ScreenProtectionHelper.disableAll();
     if (mounted) setState(() {});
   }
 

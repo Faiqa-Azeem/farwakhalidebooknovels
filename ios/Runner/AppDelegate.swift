@@ -8,45 +8,34 @@ import UIKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
-    let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
-
-    if let controller = window?.rootViewController as? FlutterViewController {
-      let channel = FlutterMethodChannel(
-        name: "com.farwa.farwa_khalid/surface_recovery",
-        binaryMessenger: controller.binaryMessenger
-      )
-      channel.setMethodCallHandler { [weak self] call, result in
-        guard call.method == "recoverSurface" else {
-          result(FlutterMethodNotImplemented)
-          return
-        }
-        DispatchQueue.main.async {
-          self?.recoverFlutterSurface(controller: controller)
-          result(true)
-        }
-      }
-    }
-
-    return result
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  /// Forces the Flutter Metal surface to redraw after a native full-screen ad closes.
-  private func recoverFlutterSurface(controller: FlutterViewController) {
-    guard let view = controller.view else { return }
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    super.applicationDidBecomeActive(application)
+    #if DEBUG
+    print("[iOS] active")
+    #endif
+  }
 
-    view.isHidden = true
-    view.backgroundColor = UIColor.white
-    view.setNeedsLayout()
-    view.layoutIfNeeded()
-    view.isHidden = false
-    view.setNeedsDisplay()
+  override func applicationWillResignActive(_ application: UIApplication) {
+    super.applicationWillResignActive(application)
+    #if DEBUG
+    print("[iOS] inactive")
+    #endif
+  }
 
-    view.layer.setNeedsDisplay()
-    view.layer.displayIfNeeded()
+  override func applicationDidEnterBackground(_ application: UIApplication) {
+    super.applicationDidEnterBackground(application)
+    #if DEBUG
+    print("[iOS] background")
+    #endif
+  }
 
-    NotificationCenter.default.post(
-      name: UIApplication.didBecomeActiveNotification,
-      object: UIApplication.shared
-    )
+  override func applicationWillEnterForeground(_ application: UIApplication) {
+    super.applicationWillEnterForeground(application)
+    #if DEBUG
+    print("[iOS] foreground")
+    #endif
   }
 }

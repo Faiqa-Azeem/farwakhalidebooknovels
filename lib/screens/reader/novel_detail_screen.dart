@@ -88,12 +88,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () async {
-            await ScreenProtectionHelper.disableAll();
-            if (mounted) {
-              Navigator.pop(context);
-            }
-          },
+          onPressed: () => Navigator.pop(context),
         ),
         title: Column(
           mainAxisSize: MainAxisSize.min,
@@ -351,7 +346,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen>
       ),
     ).then((_) {
       if (mounted) {
-        ScreenProtectionHelper.disableAll();
+        setState(() {});
       }
     });
   }

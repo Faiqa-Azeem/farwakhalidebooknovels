@@ -72,7 +72,7 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen>
     if (state == AppLifecycleState.resumed &&
         widget.enableScreenProtection &&
         mounted) {
-      _secureScreen();
+      ScreenProtectionHelper.restoreReaderProtectionIfNeeded(true);
     }
   }
 

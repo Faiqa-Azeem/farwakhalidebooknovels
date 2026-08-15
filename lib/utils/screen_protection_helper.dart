@@ -3,8 +3,8 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:screen_protector/screen_protector.dart';
 
-/// Screen protection is allowed on ONE screen only:
-/// [ChapterReaderScreen] after the user taps Read Now on [EpisodeUnlockScreen].
+/// Screen protection is enabled only on [ChapterReaderScreen] when
+/// [enableScreenProtection] is true.
 class ScreenProtectionHelper {
   static bool _episodeContentProtected = false;
 
@@ -12,7 +12,6 @@ class ScreenProtectionHelper {
 
   static Future<void> enableEpisodeContentProtection() async {
     try {
-      await _turnOffAllLayers();
       await ScreenProtector.preventScreenshotOn();
       if (Platform.isAndroid) {
         await ScreenProtector.protectDataLeakageOn();
@@ -24,25 +23,6 @@ class ScreenProtectionHelper {
   }
 
   static Future<void> disableAll() async {
-    await _turnOffAllLayers();
-    _episodeContentProtected = false;
-  }
-
-  /// Before ads: light disable unless the episode reader was active.
-  static Future<void> ensureOffBeforeAd() async {
-    if (_episodeContentProtected) {
-      await disableAll();
-      return;
-    }
-
-    try {
-      await ScreenProtector.preventScreenshotOff();
-    } catch (e) {
-      debugPrint('ensureOffBeforeAd error: $e');
-    }
-  }
-
-  static Future<void> _turnOffAllLayers() async {
     try {
       await ScreenProtector.preventScreenshotOff();
       if (Platform.isIOS) {
@@ -57,6 +37,19 @@ class ScreenProtectionHelper {
       }
     } catch (e) {
       debugPrint('disableAll error: $e');
+    }
+    _episodeContentProtected = false;
+  }
+
+  /// Call once before a full-screen ad if the reader may still own protection.
+  static Future<void> ensureOffBeforeAd() async {
+    if (!_episodeContentProtected) return;
+    await disableAll();
+  }
+
+  static Future<void> restoreReaderProtectionIfNeeded(bool enabled) async {
+    if (enabled) {
+      await enableEpisodeContentProtection();
     }
   }
 }
