@@ -3,11 +3,14 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:screen_protector/screen_protector.dart';
 
+import 'ios_reader_protection.dart';
+
 /// Screen protection is enabled only on [ChapterReaderScreen] when
 /// [enableScreenProtection] is true.
 ///
-/// iOS uses screenshot blocking only (no blur/image app-switcher overlay).
-/// Android also enables data-leakage protection on the reader.
+/// iOS uses a custom native reader protection channel (no screen_protector plugin)
+/// to avoid blank Flutter surfaces after full-screen ads.
+/// Android uses screen_protector as before.
 class ScreenProtectionHelper {
   static bool _episodeContentProtected = false;
 
@@ -15,10 +18,13 @@ class ScreenProtectionHelper {
 
   static Future<void> enableEpisodeContentProtection() async {
     try {
-      await ScreenProtector.preventScreenshotOn();
-      if (Platform.isAndroid) {
-        await ScreenProtector.protectDataLeakageOn();
+      if (Platform.isIOS) {
+        final enabled = await IosReaderProtection.enable();
+        _episodeContentProtected = enabled;
+        return;
       }
+      await ScreenProtector.preventScreenshotOn();
+      await ScreenProtector.protectDataLeakageOn();
       _episodeContentProtected = true;
     } catch (e) {
       debugPrint('enableEpisodeContentProtection error: $e');
@@ -27,17 +33,13 @@ class ScreenProtectionHelper {
 
   static Future<void> disableAll() async {
     try {
-      await ScreenProtector.preventScreenshotOff();
       if (Platform.isIOS) {
-        try {
-          await ScreenProtector.protectDataLeakageWithBlurOff();
-        } catch (_) {}
-        try {
-          await ScreenProtector.protectDataLeakageWithImageOff();
-        } catch (_) {}
-      } else {
-        await ScreenProtector.protectDataLeakageOff();
+        await IosReaderProtection.disable();
+        _episodeContentProtected = false;
+        return;
       }
+      await ScreenProtector.preventScreenshotOff();
+      await ScreenProtector.protectDataLeakageOff();
     } catch (e) {
       debugPrint('disableAll error: $e');
     }
@@ -51,6 +53,10 @@ class ScreenProtectionHelper {
   }
 
   static Future<void> restoreReaderProtectionIfNeeded(bool enabled) async {
+    if (Platform.isIOS) {
+      // Custom iOS protection is not tied to UIApplication lifecycle hooks.
+      return;
+    }
     if (enabled) {
       await enableEpisodeContentProtection();
     }

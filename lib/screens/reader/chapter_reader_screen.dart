@@ -63,7 +63,9 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen>
     _loadTheme();
     _prepareChapterPages();
     if (widget.enableScreenProtection) {
-      _secureScreen();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _secureScreen();
+      });
     }
   }
 

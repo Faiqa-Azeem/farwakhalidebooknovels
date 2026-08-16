@@ -15,5 +15,8 @@ import UIKit
     NativeAdManager.shared.register(
       with: engineBridge.applicationRegistrar.messenger()
     )
+    IosReaderProtection.shared.register(
+      with: engineBridge.applicationRegistrar.messenger()
+    )
   }
 }
