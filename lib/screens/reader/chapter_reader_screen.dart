@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/novel.dart';
 import '../../utils/screen_protection_helper.dart';
@@ -63,10 +64,23 @@ class _ChapterReaderScreenState extends State<ChapterReaderScreen>
     _loadTheme();
     _prepareChapterPages();
     if (widget.enableScreenProtection) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _secureScreen();
-      });
+      _scheduleReaderProtection();
     }
+  }
+
+  void _scheduleReaderProtection() {
+    if (Platform.isIOS) {
+      // Wait for the reader route to finish composing after ad navigation.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _secureScreen();
+        });
+      });
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _secureScreen();
+    });
   }
 
   @override

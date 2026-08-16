@@ -1,20 +1,22 @@
 import Flutter
 import UIKit
 
-/// Blocks screenshots and screen recording on the Flutter reader view only.
+/// Reader-only content protection for iOS without reparenting Flutter layers.
 ///
-/// Unlike the screen_protector plugin, this does NOT register UIApplication
-/// lifecycle hooks or manipulate UIWindow on resign-active (which broke Flutter
-/// rendering after full-screen ad dismissal).
+/// Layer reparenting (used by screen_protector) crashes Impeller after ads.
+/// This implementation:
+/// - blocks screen recording by covering content while capture is active
+/// - adds a non-destructive secure overlay to reduce screenshot leakage
+/// - never moves FlutterView.layer in the hierarchy
 final class IosReaderProtection: NSObject {
   static let shared = IosReaderProtection()
 
   private let channelName = "com.farwa.farwa_khalid/reader_protection"
 
-  private var secureField: UITextField?
-  private weak var protectedView: UIView?
-  private weak var previousSuperlayer: CALayer?
-
+  private var secureOverlay: UITextField?
+  private var captureBlocker: UIView?
+  private weak var hostView: UIView?
+  private var observers: [NSObjectProtocol] = []
   private var isEnabled = false
 
   private override init() {
@@ -55,28 +57,23 @@ final class IosReaderProtection: NSObject {
         result(false)
         return
       }
-      self.applySecureLayer(to: flutterView)
+      self.startProtection(on: flutterView)
       self.isEnabled = true
-      self.logDebug("reader protection enabled")
+      self.logDebug("reader protection enabled (safe mode)")
       result(true)
     }
   }
 
   private func disableProtection(result: @escaping FlutterResult) {
     DispatchQueue.main.async { [weak self] in
-      guard let self else {
-        result(nil)
-        return
-      }
-      self.removeSecureLayer()
-      self.isEnabled = false
-      self.logDebug("reader protection disabled")
+      self?.stopProtection()
       result(nil)
     }
   }
 
-  private func applySecureLayer(to view: UIView) {
-    removeSecureLayer()
+  private func startProtection(on view: UIView) {
+    stopProtection()
+    hostView = view
 
     let field = UITextField()
     field.isSecureTextEntry = true
@@ -90,30 +87,91 @@ final class IosReaderProtection: NSObject {
       field.topAnchor.constraint(equalTo: view.topAnchor),
       field.bottomAnchor.constraint(equalTo: view.bottomAnchor),
     ])
-    view.layoutIfNeeded()
 
-    guard let fieldSecureLayer = field.layer.sublayers?.first else {
-      field.removeFromSuperview()
-      return
+    secureOverlay = field
+
+    let captureObserver = NotificationCenter.default.addObserver(
+      forName: UIScreen.capturedDidChangeNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.syncCaptureBlocker()
+    }
+    observers.append(captureObserver)
+
+    if #available(iOS 11.0, *) {
+      let screenshotObserver = NotificationCenter.default.addObserver(
+        forName: UIApplication.userDidTakeScreenshotNotification,
+        object: nil,
+        queue: .main
+      ) { [weak self] _ in
+        self?.flashCaptureBlocker()
+      }
+      observers.append(screenshotObserver)
     }
 
-    previousSuperlayer = view.layer.superlayer
-    previousSuperlayer?.addSublayer(fieldSecureLayer)
-    fieldSecureLayer.addSublayer(view.layer)
-
-    secureField = field
-    protectedView = view
+    syncCaptureBlocker()
   }
 
-  private func removeSecureLayer() {
-    if let view = protectedView, let superlayer = previousSuperlayer {
-      view.layer.removeFromSuperlayer()
-      superlayer.addSublayer(view.layer)
+  private func stopProtection() {
+    for observer in observers {
+      NotificationCenter.default.removeObserver(observer)
     }
-    secureField?.removeFromSuperview()
-    secureField = nil
-    protectedView = nil
-    previousSuperlayer = nil
+    observers.removeAll()
+
+    captureBlocker?.removeFromSuperview()
+    captureBlocker = nil
+
+    secureOverlay?.removeFromSuperview()
+    secureOverlay = nil
+
+    hostView = nil
+    isEnabled = false
+    logDebug("reader protection disabled")
+  }
+
+  private func syncCaptureBlocker() {
+    guard isEnabled else { return }
+
+    if UIScreen.main.isCaptured {
+      showCaptureBlocker()
+    } else {
+      hideCaptureBlocker()
+    }
+  }
+
+  private func showCaptureBlocker() {
+    guard captureBlocker == nil else { return }
+    guard let view = hostView ?? resolveFlutterView() else { return }
+
+    let blocker = UIView()
+    blocker.backgroundColor = .black
+    blocker.isUserInteractionEnabled = true
+    blocker.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(blocker)
+    NSLayoutConstraint.activate([
+      blocker.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+      blocker.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+      blocker.topAnchor.constraint(equalTo: view.topAnchor),
+      blocker.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+    ])
+    captureBlocker = blocker
+    logDebug("screen recording blocked with overlay")
+  }
+
+  private func hideCaptureBlocker() {
+    captureBlocker?.removeFromSuperview()
+    captureBlocker = nil
+  }
+
+  private func flashCaptureBlocker() {
+    guard isEnabled else { return }
+    showCaptureBlocker()
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+      guard let self, self.isEnabled, !UIScreen.main.isCaptured else { return }
+      self.hideCaptureBlocker()
+    }
+    logDebug("screenshot detected — brief content cover")
   }
 
   private func resolveFlutterView() -> UIView? {
